@@ -527,7 +527,8 @@ export const CONTACT_COLUMNS = [
     key: "position",
     header: "직급",
     width: 12,
-    aliases: ["직급", "직위", "직책", "position", "title"],
+    // 리멤버는 '직함' 을 쓴다
+    aliases: ["직함", "직급", "직위", "직책", "position", "title"],
   },
   {
     key: "mobile",
@@ -539,20 +540,50 @@ export const CONTACT_COLUMNS = [
     key: "phone",
     header: "직통 전화",
     width: 16,
-    aliases: ["전화", "회사전화", "직통", "유선전화", "tel", "phone", "사무실전화"],
+    aliases: [
+      "근무처 전화",
+      "전화",
+      "회사전화",
+      "직통",
+      "유선전화",
+      "tel",
+      "phone",
+      "사무실전화",
+    ],
   },
   {
     key: "email",
     header: "이메일",
     width: 24,
-    aliases: ["이메일", "메일", "e-mail", "email", "메일주소"],
+    aliases: ["전자 메일 주소", "이메일", "메일", "e-mail", "email", "메일주소"],
+  },
+  {
+    key: "address",
+    header: "주소",
+    width: 34,
+    aliases: ["근무지 주소 번지", "근무지 주소", "주소", "회사주소", "address"],
   },
   {
     key: "receivedAt",
     header: "명함 받은 날",
     width: 14,
     hint: "비우면 오늘",
-    aliases: ["명함받은날", "등록일", "명함등록일", "저장일", "날짜", "수집일"],
+    aliases: [
+      "명함 등록일",
+      "명함받은날",
+      "등록일",
+      "명함등록일",
+      "저장일",
+      "날짜",
+      "수집일",
+    ],
+  },
+  {
+    key: "cardBook",
+    header: "명함첩 · 그룹",
+    width: 18,
+    hint: "메모에 함께 남깁니다",
+    aliases: ["명함첩 이름", "명함첩", "그룹", "분류", "태그"],
   },
   {
     key: "memo",
@@ -586,7 +617,9 @@ export async function buildContactTemplate(): Promise<Buffer> {
       "010-2345-6789",
       "02-3400-1234",
       "jh.park@example.com",
+      "경기도 수원시 영통구 삼성로 129",
       "2026-08-11",
+      "HRD 담당자",
       "오전 연락 선호",
     ],
   });
@@ -683,7 +716,16 @@ export async function parseContactWorkbook(
       else seen.set(dupKey, r);
     }
 
-    for (const key of ["department", "position", "mobile", "phone", "email", "memo"] as const) {
+    for (const key of [
+      "department",
+      "position",
+      "mobile",
+      "phone",
+      "email",
+      "address",
+      "cardBook",
+      "memo",
+    ] as const) {
       values[key] = raw[key] || null;
     }
 

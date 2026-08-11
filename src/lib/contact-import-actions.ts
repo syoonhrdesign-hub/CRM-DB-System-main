@@ -123,6 +123,18 @@ export async function commitContactImport(
       ? new Date(String(row.values.receivedAt))
       : new Date();
 
+    /*
+     * 명함첩·그룹은 따로 저장할 자리가 없지만 버리기엔 아깝다.
+     * 어느 명함첩에서 온 사람인지가 나중에 맥락이 되므로 메모에 붙여 둔다.
+     */
+    const memo =
+      [
+        row.values.memo as string | null,
+        row.values.cardBook ? `명함첩: ${row.values.cardBook}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n") || null;
+
     try {
       const contact = await db.contact.create({
         data: {
@@ -133,7 +145,7 @@ export async function commitContactImport(
           email: (row.values.email as string) ?? null,
           phone: (row.values.phone as string) ?? null,
           mobile: (row.values.mobile as string) ?? null,
-          memo: (row.values.memo as string) ?? null,
+          memo,
           firstMetAt: receivedAt,
           firstMetChannel: "기타",
           firstMetPlace: "명함 일괄 등록",
@@ -152,8 +164,9 @@ export async function commitContactImport(
           email: (row.values.email as string) ?? null,
           phone: (row.values.phone as string) ?? null,
           mobile: (row.values.mobile as string) ?? null,
+          address: (row.values.address as string) ?? null,
           receivedChannel: "기타",
-          memo: (row.values.memo as string) ?? null,
+          memo,
         },
       });
       cards += 1;

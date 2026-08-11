@@ -244,6 +244,10 @@ export default async function ContactDetailPage({
                           .join(" · ") || "연락처 없음"}
                       </p>
 
+                      {card.address && (
+                        <p className="mt-0.5 text-xs text-muted">{card.address}</p>
+                      )}
+
                       {card.receivedPlace && (
                         <p className="mt-0.5 text-xs text-muted">
                           받은 곳: {card.receivedPlace}
