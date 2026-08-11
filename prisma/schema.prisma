@@ -1,0 +1,213 @@
+// 교육 전문기업용 고객사(기업·기관) CRM 데이터 모델
+//
+// SQLite 로 시작하되, PostgreSQL 전환이 쉽도록 DB 고유 기능(enum, array 등)은
+// 사용하지 않고 문자열 + 애플리케이션 레벨 상수(src/lib/constants.ts)로 관리한다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 고객사 — 교육을 의뢰하는 기업 / 공공기관 / 대학 / 병원 등
+model Organization {
+  id String @id @default(cuid())
+
+  name      String // 기관명 (예: 한국전력공사)
+  shortName String? // 약칭 (예: 한전)
+  bizRegNo  String? @unique // 사업자등록번호 (000-00-00000)
+
+  orgType  String @default("기업") // 기업 / 공공기관 / 지자체 / 대학 / 병원 / 비영리 / 기타
+  industry String? // 업종 (제조, 금융, IT, 유통 ...)
+  sizeTier String? // 대기업 / 중견기업 / 중소기업 / 스타트업
+  employeeCount Int? // 임직원 수 — 교육 규모 산정 기준
+
+  status String @default("잠재고객") // 잠재고객 / 거래중 / 휴면 / 종료
+
+  phone   String?
+  website String?
+  address String?
+
+  /// 사내 영업 담당자
+  ownerName String?
+
+  memo String?
+
+  contacts      Contact[]
+  trainings     Training[]
+  deals         Deal[]
+  activities    Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@index([orgType])
+}
+
+/// 고객사 담당자 (교육 담당자, 인사팀 등)
+model Contact {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name       String
+  department String? // 인재개발원, 인사팀 ...
+  position   String? // 과장, 팀장 ...
+  email      String?
+  phone      String? // 직통
+  mobile     String? // 휴대폰
+
+  /// 대표 담당자 여부 — 고객사당 1명을 권장
+  isPrimary Boolean @default(false)
+
+  memo String?
+
+  deals      Deal[]
+  activities Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([name])
+}
+
+/// 자사 교육 과정 마스터
+model Course {
+  id String @id @default(cuid())
+
+  code String  @unique // LDR-001
+  name String // 신임팀장 리더십 과정
+
+  category String @default("직무") // 리더십 / 직무 / 법정의무 / DX / CS / 기타
+  format   String @default("집합") // 집합 / 온라인 / 블렌디드
+
+  durationHours   Float @default(8) // 총 시수
+  defaultPrice    Int   @default(0) // 1인당 기본 단가(원)
+  minHeadcount    Int? // 최소 개설 인원
+
+  description String?
+  isActive    Boolean @default(true)
+
+  trainings Training[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+/// 교육 진행 이력 — 어느 고객사에 언제 무슨 과정을 몇 명에게 진행했는가
+model Training {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  courseId String?
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  /// 실제 운영 차수명 (예: 2026년 상반기 신임팀장 과정 1차)
+  title String
+
+  startDate DateTime
+  endDate   DateTime?
+
+  headcount    Int    @default(0) // 수료 인원
+  pricePerHead Int    @default(0) // 1인당 단가(원)
+  totalAmount  Int    @default(0) // 총 계약금액(원) — 인원×단가와 다를 수 있어 별도 보관
+
+  location   String? // 고객사 연수원 / 자사 강의장 / 온라인
+  instructor String? // 담당 강사
+
+  status String @default("예정") // 예정 / 진행중 / 완료 / 취소
+
+  /// 만족도 (5점 만점)
+  satisfaction Float?
+
+  memo String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([startDate])
+  @@index([status])
+}
+
+/// 영업 기회 — 문의부터 계약까지의 파이프라인
+model Deal {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  title String // 2026 상반기 리더십 교육 제안
+
+  stage String @default("문의") // 문의 / 제안 / 견적 / 계약 / 완료 / 실패
+
+  expectedAmount Int  @default(0) // 예상 매출(원)
+  probability    Int  @default(20) // 성사 확률(%)
+
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+
+  /// 실패 시 사유 (가격 / 경쟁사 / 예산 / 시기 ...)
+  lostReason String?
+
+  ownerName String? // 사내 영업 담당자
+
+  memo String?
+
+  activities Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([stage])
+}
+
+/// 활동 기록 — 전화·메일·미팅 로그와 후속 조치
+model Activity {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  dealId String?
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  type String @default("전화") // 전화 / 이메일 / 미팅 / 방문 / 제안발표 / 기타
+
+  occurredAt DateTime @default(now())
+
+  summary String // 한 줄 요약
+  content String? // 상세 내용
+
+  /// 후속 조치 — 대시보드의 "할 일" 목록으로 올라온다
+  nextAction     String?
+  nextActionDate DateTime?
+  isDone         Boolean   @default(false)
+
+  ownerName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([occurredAt])
+  @@index([nextActionDate])
+}
