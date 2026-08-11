@@ -12,7 +12,7 @@ export default async function TrendManualPage() {
     <>
       <PageHeader
         title="직접 등록"
-        description="RSS 가 없는 기관 자료(KRIVET 이슈브리프, 협회 보고서 등)를 손으로 남깁니다."
+        description="DBR·KRIVET 처럼 구독하거나 직접 확인하는 자료를 남깁니다. 여기 남긴 글도 주간 브리핑 요약에 포함됩니다."
         action={
           <Link href="/trends" className="btn btn-secondary">
             목록

@@ -116,7 +116,7 @@ export const STARTER_SOURCES: StarterSource[] = [
     kind: "manual",
     category: "경제",
     url: "https://dbr.donga.com",
-    why: "동아일보의 격주 경영 리뷰. 대부분 유료라 자동 수집 대신 좋은 글을 직접 남긴다.",
+    why: "유료 구독 중. 읽다가 좋은 글은 '직접 등록'에 주소만 붙여넣으면 출처가 자동으로 채워지고 주간 브리핑에도 반영된다.",
   },
   {
     name: "DBR 관련 기사",
