@@ -22,12 +22,22 @@
   /* 순검정 대신 살짝 푸른 먹색 — 흰 배경에서 더 또렷하게 읽힌다 */
   --text: #101828;
   --text-muted: #5d6b82;
-  --text-faint: #94a0b3;
+  /* 날짜·건수 같은 보조 정보도 정보다. 흰 배경에서 4.5:1 을 넘긴다 */
+  --text-faint: #64748b;
 
-  /* 기본 파랑에서 벗어난 인디고. 신뢰감을 주면서 흔하지 않다 */
-  --accent: #3d4ee0;
-  --accent-hover: #3341c8;
-  --accent-soft: #eef1fe;
+  /* 브랜드 4색 — 로고의 브러시 획. DISC 유형 색이다.
+     장식·아이덴티티 전용이고 버튼·링크에는 쓰지 않는다. 흰 글자 대비가
+     빨강 3.68 / 노랑 1.51 / 초록 1.91 / 파랑 2.83 으로 모두 기준(4.5) 미달이다. */
+  --brand-red: #e05a3e;
+  --brand-yellow: #f9ce2b;
+  --brand-green: #9ec95e;
+  --brand-blue: #4ba1da;
+
+  /* UI 동작색 — 브랜드 파랑과 같은 계열을 어둡게 해 대비를 확보했다.
+     흰 글자 대비 5.22:1 로 WCAG AA 를 통과한다. */
+  --accent: #1e71ad;
+  --accent-hover: #17659c;
+  --accent-soft: #e8f3fa;
 
   --danger: #d13438;
   --success: #0f7b52;
@@ -50,12 +60,13 @@
 
     --text: #e8eaee;
     --text-muted: #98a1b2;
-    --text-faint: #6b7486;
+    --text-faint: #78829a;
 
-    /* 어두운 배경에서는 같은 인디고가 탁해 보여 밝기를 올린다 */
-    --accent: #8093f7;
-    --accent-hover: #94a4f9;
-    --accent-soft: #1a1f36;
+    /* 어두운 배경에서는 브랜드 파랑을 그대로 써도 대비가 넉넉하다(6.4:1).
+       읽기 편하도록 아주 조금만 밝힌다. */
+    --accent: #5fb0e1;
+    --accent-hover: #7cc0e9;
+    --accent-soft: #102431;
 
     --danger: #f07a7d;
     --success: #4ec08d;
@@ -76,6 +87,10 @@
   --color-faint: var(--text-faint);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-brand-red: var(--brand-red);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-green: var(--brand-green);
+  --color-brand-blue: var(--brand-blue);
   --color-danger: var(--danger);
   --color-success: var(--success);
 

@@ -20,7 +20,7 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "교육사업 CRM",
+  title: "neoize CRM",
   description: "기업·기관 고객사와 교육 진행 이력을 관리하는 CRM",
 };
 

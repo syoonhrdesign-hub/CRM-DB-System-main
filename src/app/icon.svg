@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#2563eb"/>
-  <path d="M16 6 4 12l12 6 9-4.5V21h2.5v-9L16 6Z" fill="#fff"/>
-  <path d="M9 16.2v4.3c0 1.9 3.1 3.5 7 3.5s7-1.6 7-3.5v-4.3l-7 3.5-7-3.5Z" fill="#fff" opacity=".75"/>
+  <!-- 브랜드 4색 브러시를 단순화한 사선 마크 (DISC 유형 색) -->
+  <rect width="32" height="32" rx="7" fill="#ffffff"/>
+  <g transform="skewX(-14)">
+    <rect x="6" y="4" width="4.6" height="24" rx="1" fill="#e05a3e"/>
+    <rect x="11.4" y="4" width="4.6" height="24" rx="1" fill="#f9ce2b"/>
+    <rect x="16.8" y="4" width="4.6" height="24" rx="1" fill="#9ec95e"/>
+    <rect x="22.2" y="4" width="4.6" height="24" rx="1" fill="#4ba1da"/>
+  </g>
 </svg>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/lib/auth-actions";
+import { BrandMark } from "./brand";
 
 const LINKS = [
   { href: "/", label: "대시보드" },
@@ -34,10 +35,8 @@ export function Nav({
     <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-bold">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-sm font-bold text-white">
-            E
-          </span>
-          <span className="whitespace-nowrap">교육사업 CRM</span>
+          <BrandMark className="h-6 w-6 shrink-0" />
+          <span className="whitespace-nowrap">neoize CRM</span>
         </Link>
 
         <nav className="ml-2 hidden flex-wrap gap-1 md:flex">
