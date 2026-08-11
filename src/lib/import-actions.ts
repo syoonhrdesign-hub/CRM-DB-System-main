@@ -107,6 +107,7 @@ export async function commitImport(
       sizeTier: (row.values.sizeTier as string) ?? null,
       employeeCount: (row.values.employeeCount as number) ?? null,
       status: (row.values.status as string) ?? "잠재고객",
+      acquisitionChannel: (row.values.acquisitionChannel as string) ?? null,
       clientDepartment: (row.values.clientDepartment as string) ?? null,
       departmentRole: (row.values.departmentRole as string) ?? null,
       ownerName: (row.values.ownerName as string) ?? null,
