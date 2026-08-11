@@ -11,6 +11,7 @@ export function DealForm({
   organizations,
   contacts,
   defaultOrganizationId,
+  currentUserName,
 }: {
   action: (fd: FormData) => Promise<void>;
   deal?: Deal;
@@ -18,6 +19,8 @@ export function DealForm({
   /** 고객사 전체의 담당자 — 선택 목록에 소속 기관을 함께 보여 준다. */
   contacts: { id: string; name: string; organizationName: string }[];
   defaultOrganizationId?: string;
+  /** 로그인한 사용자 이름 — 새 영업건의 담당자 기본값 */
+  currentUserName?: string;
 }) {
   const orgId = deal?.organizationId ?? defaultOrganizationId;
 
@@ -107,8 +110,15 @@ export function DealForm({
           />
         </Field>
 
-        <Field label="사내 영업 담당자" htmlFor="ownerName">
-          <TextInput name="ownerName" defaultValue={deal?.ownerName} />
+        <Field
+          label="사내 영업 담당자"
+          htmlFor="ownerName"
+          hint="비워 두면 로그인한 본인 이름이 들어갑니다."
+        >
+          <TextInput
+            name="ownerName"
+            defaultValue={deal?.ownerName ?? currentUserName}
+          />
         </Field>
 
         <Field label="메모" htmlFor="memo" span={2}>

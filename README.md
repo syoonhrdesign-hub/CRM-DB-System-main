@@ -3,21 +3,78 @@
 기업·기관을 상대로 교육을 진행하는 회사를 위한 고객 관리 시스템입니다.
 고객사 DB, 담당자, 교육 과정과 진행 이력, 영업 파이프라인, 활동 기록을 한곳에서 관리합니다.
 
-## 빠른 시작
+## 3명이 함께 쓰기 — 배포
+
+이 시스템은 **로그인한 사람만** 들어올 수 있습니다. 고객사 연락처와 거래 정보를
+다루므로 인증 없이 인터넷에 올리면 안 됩니다.
+
+### 1. 데이터베이스 (Neon · 무료)
+
+1. https://neon.tech 가입 → 새 프로젝트 생성 (리전은 `Asia Pacific (Seoul)` 권장)
+2. 대시보드의 **Connection string** 복사 (`postgresql://...` 형태)
+
+### 2. Vercel 배포
+
+1. https://vercel.com 가입 후 이 저장소를 **Import**
+2. **Environment Variables** 에 두 개를 넣습니다.
+
+   | 이름 | 값 |
+   |---|---|
+   | `DATABASE_URL` | Neon 에서 복사한 연결 문자열 |
+   | `AUTH_SECRET` | `openssl rand -base64 32` 결과 (32자 이상) |
+
+3. Deploy — 빌드 과정에서 `prisma migrate deploy` 가 테이블을 자동으로 만듭니다.
+
+### 3. 첫 관리자 계정 만들기
+
+배포 직후에는 로그인할 계정이 하나도 없습니다. 로컬에서 한 번만 실행하세요.
+
+```bash
+# .env 의 DATABASE_URL 을 Neon 주소로 맞춘 뒤
+npm install
+npm run create-admin "홍길동" hong@example.com "본인이정한비밀번호10자이상"
+```
+
+이제 배포된 주소의 `/login` 에서 로그인하고, **사용자 관리** 메뉴에서 나머지 2명을
+추가하면 됩니다. 초기 비밀번호를 정해 전달하면 본인이 첫 로그인 때 바꿉니다.
+
+### 계정 운영 규칙
+
+- **퇴사자는 삭제하지 말고 비활성화**하세요. 그 사람이 남긴 활동 기록과 담당 이력이
+  그대로 보존됩니다.
+- 관리자는 최소 한 명이 남아 있어야 하며, 본인의 관리자 권한은 스스로 해제할 수 없습니다.
+- 비밀번호를 잊으면 관리자가 **사용자 관리 → 수정 → 비밀번호 초기화**로 새 값을 정해 줍니다.
+- `AUTH_SECRET` 을 바꾸면 전원 로그아웃됩니다.
+
+## 로컬에서 돌려보기
+
+PostgreSQL 이 필요합니다. Neon 무료 프로젝트를 하나 더 만들어 개발용으로 써도 됩니다.
 
 ```bash
 npm install
-cp .env.example .env      # DATABASE_URL 확인
-npm run setup             # Prisma 클라이언트 생성 + DB 생성 + 데모 데이터 입력
+cp .env.example .env      # DATABASE_URL, AUTH_SECRET 채우기
+npm run setup             # 마이그레이션 + 데모 데이터
 npm run dev               # http://localhost:3000
 ```
+
+데모 데이터에는 계정 3개가 들어 있습니다 (비밀번호 모두 `crm2026demo`).
+
+| 이메일 | 이름 | 권한 |
+|---|---|---|
+| admin@example.com | 김영업 | 관리자 |
+| consultant@example.com | 정컨설 | 일반 |
+| manager@example.com | 이매니저 | 일반 |
+
+> 데모 계정은 실제 운영에 쓰지 마세요. `npm run create-admin` 으로 본인 계정을 만들고
+> 데모 계정은 비활성화하거나, 처음부터 시드 없이 시작하세요.
 
 데모 데이터 없이 빈 상태로 시작하려면:
 
 ```bash
 npm install
 cp .env.example .env
-npx prisma generate && npx prisma db push
+npx prisma generate && npx prisma migrate deploy
+npm run create-admin "이름" 이메일 비밀번호
 npm run dev
 ```
 
@@ -37,6 +94,9 @@ npm run dev
 | 교육 진행 | `/trainings` | 진행 이력 목록, 연도·상태 필터, 매출·수료 인원 집계 |
 | 교육 과정 | `/courses` | 자사 과정 마스터와 과정별 운영 실적 |
 | 활동 기록 | `/activities` | 전화·미팅·메일 로그, 미완료 후속조치만 보기 |
+| 로그인 | `/login` | 이메일·비밀번호 로그인 (유일하게 인증 없이 열리는 화면) |
+| 비밀번호 변경 | `/account/password` | 본인 비밀번호 변경 |
+| 사용자 관리 | `/users` | **관리자 전용** — 계정 추가·권한 변경·비활성화·비밀번호 초기화 |
 
 ## 정례화된 관리가 돌아가는 방식
 
@@ -141,8 +201,7 @@ Organization (고객사)
 - **Activity** — 유형, 일자, 요약·상세, 후속 조치와 기한, 완료 여부
 
 선택 목록(기관 유형, 영업 단계 등)은 DB enum 이 아니라 `src/lib/constants.ts` 의
-문자열 배열로 관리합니다. 항목을 추가·변경할 때 마이그레이션이 필요 없고,
-나중에 PostgreSQL 로 옮길 때도 그대로 동작합니다.
+문자열 배열로 관리합니다. 선택지를 추가하거나 이름을 바꿀 때 마이그레이션이 필요 없습니다.
 
 ## 알아두면 좋은 동작
 
@@ -160,21 +219,21 @@ Organization (고객사)
 ## 기술 스택
 
 - **Next.js 15** (App Router, Server Actions) — 별도 API 서버 없이 서버에서 직접 DB 접근
-- **Prisma 6 + SQLite** — 파일 하나로 시작. 운영 규모가 커지면 PostgreSQL 로 전환
+- **Prisma 6 + PostgreSQL** — 여러 명이 동시에 쓰는 것을 전제로 함 (Neon 무료 티어로 충분)
+- **자체 인증** — scrypt 비밀번호 해싱 + 서명된 세션 쿠키(JWT). 외부 인증 서비스 없음
 - **Tailwind CSS 4** — 라이트/다크 모드는 시스템 설정을 따름
 - **TypeScript**
 
-## PostgreSQL 로 전환하기
+## 보안
 
-동시 사용자가 늘거나 여러 서버에서 붙어야 하면 SQLite 로는 한계가 있습니다.
-
-1. `prisma/schema.prisma` 의 `datasource db { provider = "sqlite" }` 를 `"postgresql"` 로 변경
-2. `.env` 의 `DATABASE_URL` 을 PostgreSQL 접속 문자열로 변경
-3. `npx prisma db push` 실행
-
-스키마에 SQLite 전용 기능을 쓰지 않았기 때문에 코드 수정은 필요 없습니다.
-다만 `src/app/organizations/page.tsx` 등의 검색은 SQLite 에 맞춰 `contains` 만 쓰고 있으므로,
-PostgreSQL 에서는 `mode: "insensitive"` 를 추가하면 영문 대소문자 구분 없는 검색이 됩니다.
+- 로그인 화면(`/login`)을 뺀 **모든 경로가 미들웨어에서 차단**됩니다. 새 페이지를 추가해도
+  자동으로 보호되므로 페이지마다 검사를 넣을 필요가 없습니다.
+- 비밀번호는 **scrypt 해시로만** 저장합니다. 평문은 DB·로그 어디에도 남지 않습니다.
+- 로그인 실패 시 계정이 있든 없든 **같은 메시지·비슷한 응답 시간**으로 답합니다.
+  응답 차이로 가입 여부를 알아내지 못하게 하기 위해서입니다.
+- 세션 쿠키는 `httpOnly` + `sameSite=lax`, 운영 환경에서는 `secure` 로 발급됩니다.
+- 계정을 비활성화하면 이미 발급된 세션도 즉시 무효가 됩니다. 매 요청마다 DB 에서
+  활성 여부를 다시 확인하기 때문입니다.
 
 ## 스크립트
 
@@ -183,18 +242,18 @@ PostgreSQL 에서는 `mode: "insensitive"` 를 추가하면 영문 대소문자 
 | `npm run dev` | 개발 서버 |
 | `npm run build` | 프로덕션 빌드 |
 | `npm start` | 빌드 결과 실행 |
-| `npm run setup` | 클라이언트 생성 + DB 생성 + 시드 |
-| `npm run db:push` | 스키마 변경을 DB 에 반영 |
+| `npm run setup` | 마이그레이션 + 데모 데이터 |
+| `npm run create-admin "이름" 이메일 비밀번호` | 첫 관리자 계정 생성 (배포 후 1회) |
+| `npm run db:migrate` | 스키마를 바꾼 뒤 마이그레이션 파일 생성 |
+| `npm run db:deploy` | 마이그레이션을 DB 에 적용 (배포 시 자동 실행됨) |
 | `npm run db:seed` | 데모 데이터 입력 (기존 데이터를 지웁니다) |
-| `npm run db:reset` | DB 초기화 후 재시드 |
 | `npm run db:studio` | Prisma Studio 로 데이터 직접 확인 |
 
 ## 아직 없는 것
 
-지금은 로그인이 없어 접근하는 모든 사람이 전체 데이터를 보고 수정할 수 있습니다.
-사내망 밖에 두거나 여러 담당자가 나눠 쓸 계획이라면 다음이 필요합니다.
-
-- 사용자 인증과 권한 (담당 고객사만 보기 등)
-- 변경 이력 로그
-- 엑셀 가져오기/내보내기
-- 첨부파일(제안서, 계약서) 보관
+- **담당 고객사별 접근 제한** — 지금은 로그인한 사람 모두가 전체 고객사를 봅니다.
+  3명 규모에서는 오히려 편하지만, 인원이 늘면 본인 담당만 보이게 나눌 수 있습니다.
+- **변경 이력 로그** — 누가 언제 무엇을 고쳤는지 추적
+- **엑셀 가져오기/내보내기** — 기존에 엑셀로 관리하던 고객사 명단 일괄 등록
+- **첨부파일 보관** — 제안서, 견적서, 계약서
+- **명함 이미지 업로드** — 지금은 외부 링크만 넣을 수 있습니다

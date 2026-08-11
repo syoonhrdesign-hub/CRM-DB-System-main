@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/lib/auth";
 
 const db = new PrismaClient();
 
@@ -36,6 +37,36 @@ async function main() {
   await db.accountProfile.deleteMany();
   await db.course.deleteMany();
   await db.organization.deleteMany();
+  await db.user.deleteMany();
+
+  console.log("사용자 계정 생성 중…");
+  /*
+   * 데모용 계정. 실제 운영에서는 seed 를 돌리지 말고
+   * `npm run create-admin` 으로 본인 계정을 만들어 쓴다.
+   */
+  const demoPassword = await hashPassword("crm2026demo");
+  await db.user.createMany({
+    data: [
+      {
+        email: "admin@example.com",
+        name: "김영업",
+        passwordHash: demoPassword,
+        role: "admin",
+      },
+      {
+        email: "consultant@example.com",
+        name: "정컨설",
+        passwordHash: demoPassword,
+        role: "member",
+      },
+      {
+        email: "manager@example.com",
+        name: "이매니저",
+        passwordHash: demoPassword,
+        role: "member",
+      },
+    ],
+  });
 
   console.log("교육 과정 생성 중…");
   const courses = await Promise.all(

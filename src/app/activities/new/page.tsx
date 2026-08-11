@@ -2,6 +2,7 @@ import { ActivityForm } from "@/components/activity-form";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { createActivity } from "@/lib/actions";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function NewActivityPage({
 }: {
   searchParams: Promise<{ orgId?: string }>;
 }) {
+  const currentUser = await getCurrentUser();
   const { orgId } = await searchParams;
 
   const [organizations, contacts, deals] = await Promise.all([
@@ -39,6 +41,7 @@ export default async function NewActivityPage({
           />
         ) : (
           <ActivityForm
+        currentUserName={currentUser?.name}
             action={createActivity}
             organizations={organizations}
             contacts={contacts.map((c) => ({

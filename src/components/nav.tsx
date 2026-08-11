@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { logout } from "@/lib/auth-actions";
 
 const LINKS = [
   { href: "/", label: "대시보드" },
@@ -20,9 +21,14 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Nav() {
+export function Nav({
+  user,
+}: {
+  user: { name: string; email: string; role: string };
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState(false);
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
@@ -49,6 +55,73 @@ export function Nav() {
             </Link>
           ))}
         </nav>
+
+        {/* 계정 메뉴 */}
+        <div className="relative ml-auto hidden md:block">
+          <button
+            type="button"
+            onClick={() => setMenu((v) => !v)}
+            aria-expanded={menu}
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2"
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-accent-soft text-xs font-bold text-accent">
+              {user.name.slice(0, 1)}
+            </span>
+            <span className="font-medium">{user.name}</span>
+          </button>
+
+          {menu && (
+            <>
+              {/* 바깥을 누르면 닫히도록 */}
+              <button
+                type="button"
+                aria-label="메뉴 닫기"
+                className="fixed inset-0 z-10 cursor-default"
+                onClick={() => setMenu(false)}
+              />
+              <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+                <div className="px-2.5 py-2">
+                  <p className="text-sm font-semibold">{user.name}</p>
+                  <p className="truncate text-xs text-faint">{user.email}</p>
+                  {user.role === "admin" && (
+                    <p className="mt-1 text-xs font-semibold text-accent">관리자</p>
+                  )}
+                </div>
+
+                <hr className="my-1 border-line" />
+
+                <Link
+                  href="/account/password"
+                  onClick={() => setMenu(false)}
+                  className="block rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink"
+                >
+                  비밀번호 변경
+                </Link>
+
+                {user.role === "admin" && (
+                  <Link
+                    href="/users"
+                    onClick={() => setMenu(false)}
+                    className="block rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink"
+                  >
+                    사용자 관리
+                  </Link>
+                )}
+
+                <hr className="my-1 border-line" />
+
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-ink"
+                  >
+                    로그아웃
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
+        </div>
 
         <button
           type="button"
@@ -77,6 +150,36 @@ export function Nav() {
               {l.label}
             </Link>
           ))}
+
+          <hr className="my-1 border-line" />
+
+          <p className="px-3 py-1 text-xs text-faint">
+            {user.name} · {user.email}
+          </p>
+          <Link
+            href="/account/password"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted"
+          >
+            비밀번호 변경
+          </Link>
+          {user.role === "admin" && (
+            <Link
+              href="/users"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted"
+            >
+              사용자 관리
+            </Link>
+          )}
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-muted"
+            >
+              로그아웃
+            </button>
+          </form>
         </nav>
       )}
     </header>

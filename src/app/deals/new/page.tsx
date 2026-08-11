@@ -2,6 +2,7 @@ import { DealForm } from "@/components/deal-form";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { createDeal } from "@/lib/actions";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function NewDealPage({
 }: {
   searchParams: Promise<{ orgId?: string }>;
 }) {
+  const currentUser = await getCurrentUser();
   const { orgId } = await searchParams;
 
   const [organizations, contacts] = await Promise.all([
@@ -35,6 +37,7 @@ export default async function NewDealPage({
           />
         ) : (
           <DealForm
+        currentUserName={currentUser?.name}
             action={createDeal}
             organizations={organizations}
             contacts={contacts.map((c) => ({

@@ -20,6 +20,7 @@ export function ActivityForm({
   contacts,
   deals,
   defaultOrganizationId,
+  currentUserName,
 }: {
   action: (fd: FormData) => Promise<void>;
   activity?: Activity;
@@ -27,6 +28,8 @@ export function ActivityForm({
   contacts: { id: string; name: string; organizationName: string }[];
   deals: { id: string; title: string; organizationName: string }[];
   defaultOrganizationId?: string;
+  /** 로그인한 사용자 이름 — 새 기록의 담당자 기본값 */
+  currentUserName?: string;
 }) {
   const orgId = activity?.organizationId ?? defaultOrganizationId;
 
@@ -84,8 +87,15 @@ export function ActivityForm({
           />
         </Field>
 
-        <Field label="담당 직원" htmlFor="ownerName">
-          <TextInput name="ownerName" defaultValue={activity?.ownerName} />
+        <Field
+          label="담당 직원"
+          htmlFor="ownerName"
+          hint="비워 두면 로그인한 본인 이름이 들어갑니다."
+        >
+          <TextInput
+            name="ownerName"
+            defaultValue={activity?.ownerName ?? currentUserName}
+          />
         </Field>
 
         <Field label="요약 *" htmlFor="summary" span={2}>

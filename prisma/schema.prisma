@@ -1,15 +1,45 @@
 // 교육 전문기업용 고객사(기업·기관) CRM 데이터 모델
 //
-// SQLite 로 시작하되, PostgreSQL 전환이 쉽도록 DB 고유 기능(enum, array 등)은
-// 사용하지 않고 문자열 + 애플리케이션 레벨 상수(src/lib/constants.ts)로 관리한다.
+// PostgreSQL 을 쓰되 DB 고유 기능(enum, array 등)은 사용하지 않고
+// 문자열 + 애플리케이션 레벨 상수(src/lib/constants.ts)로 관리한다.
+// 선택지를 늘리거나 이름을 바꿀 때 마이그레이션이 필요 없게 하기 위해서다.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+/// 사용자 — 이 CRM 을 쓰는 우리 회사 직원
+///
+/// 비밀번호는 scrypt 해시로만 저장한다(src/lib/auth.ts). 평문은 어디에도 남기지 않는다.
+model User {
+  id String @id @default(cuid())
+
+  email String @unique
+  name  String
+
+  /// scrypt 해시. 형식은 "salt:hash" (auth.ts 참고)
+  passwordHash String
+
+  /// admin — 사용자 관리까지 가능 / member — 일반 사용
+  role String @default("member")
+
+  /// 퇴사자는 지우지 않고 비활성으로 둔다. 그가 남긴 활동 기록을 보존하기 위해서다.
+  isActive Boolean @default(true)
+
+  /// 다음 로그인 때 비밀번호를 바꾸게 한다 (관리자가 초기화해 준 직후)
+  mustChangePassword Boolean @default(false)
+
+  lastLoginAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
 }
 
 /// 고객사 — 교육을 의뢰하는 기업 / 공공기관 / 대학 / 병원 등
