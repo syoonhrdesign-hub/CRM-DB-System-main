@@ -18,8 +18,24 @@ import { SESSION_COOKIE, readSessionToken } from "@/lib/session-token";
  */
 const PUBLIC_PATHS = ["/login", "/code"];
 
+/**
+ * 트렌드 자동 수집만 사람 없이 들어온다.
+ *
+ * 작업 스케줄러가 부르는 것이라 로그인할 방법이 없다. 대신 .env 의
+ * TRENDS_CRON_TOKEN 과 맞는 요청만 통과시킨다. 토큰을 정해 두지 않았으면
+ * 아무도 통과하지 못한다 — 값이 비었을 때 열리는 쪽이 훨씬 위험하다.
+ */
+const CRON_PATH = "/api/trends/collect";
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  if (pathname === CRON_PATH) {
+    const expected = process.env.TRENDS_CRON_TOKEN;
+    const given = request.headers.get("x-cron-token");
+    if (expected && given === expected) return NextResponse.next();
+    return new NextResponse("unauthorized", { status: 401 });
+  }
 
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = await readSessionToken(token);

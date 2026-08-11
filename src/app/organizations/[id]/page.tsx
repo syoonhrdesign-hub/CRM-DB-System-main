@@ -37,6 +37,7 @@ export default async function OrganizationDetailPage({
     where: { id },
     include: {
       profile: true,
+      research: { select: { id: true } },
       contacts: {
         orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
         include: {
@@ -130,6 +131,15 @@ export default async function OrganizationDetailPage({
             <Link href={`/organizations/${org.id}/edit`} className="btn btn-secondary">
               정보 수정
             </Link>
+            {org.research ? (
+              <Link href={`/research/${org.research.id}`} className="btn btn-secondary">
+                조사 자료
+              </Link>
+            ) : (
+              <Link href="/research/new" className="btn btn-secondary">
+                + 조사 시작
+              </Link>
+            )}
             <Link
               href={`/activities/new?orgId=${org.id}`}
               className="btn btn-secondary"

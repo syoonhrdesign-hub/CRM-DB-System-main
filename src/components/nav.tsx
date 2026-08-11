@@ -15,6 +15,8 @@ const LINKS = [
   { href: "/trainings", label: "교육 진행" },
   { href: "/courses", label: "교육 과정" },
   { href: "/distributions", label: "코드 배부" },
+  { href: "/research", label: "기업 리서치" },
+  { href: "/trends", label: "HRD 트렌드" },
   { href: "/activities", label: "활동 기록" },
 ];
 

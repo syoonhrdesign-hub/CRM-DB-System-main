@@ -116,6 +116,7 @@ model Organization {
   contactCycleWeeks Int?
 
   profile       AccountProfile?
+  research      CompanyResearch?
   contacts      Contact[]
   trainings     Training[]
   deals         Deal[]
@@ -530,4 +531,201 @@ model Activity {
   @@index([organizationId])
   @@index([occurredAt])
   @@index([nextActionDate])
+}
+
+// ---------------------------------------------------------------------------
+//  기업 리서치
+//
+//  AccountProfile 과 성격이 다르다.
+//   - AccountProfile : 통화로 알아낸 것 (예산 편성월, HR 구조 ...)
+//   - CompanyResearch: 밖에서 조사한 것 (공시, 뉴스, 홈페이지 ...)
+//  섞으면 "이 값을 어디서 알았나"가 흐려져 상담 중에 신뢰할 수 없게 된다.
+// ---------------------------------------------------------------------------
+
+model CompanyResearch {
+  id String @id @default(cuid())
+
+  /// 아직 고객사로 등록되지 않은 회사도 조사할 수 있어야 한다
+  companyName String
+
+  organizationId String?       @unique
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  /// 상담 첫 화면에 뜨는 한 줄
+  summary String?
+
+  // 기본
+  legalName     String?
+  orgType       String?
+  industry      String?
+  foundedYear   Int?
+  ceoName       String?
+  address       String?
+  website       String?
+  phone         String?
+  /// 상장 / 코스닥 / 비상장 / 외감 / 공공
+  listingStatus String?
+  /// 소속 그룹 — 대기업 계열사인지 판단하는 근거
+  groupName     String?
+  /// DART 고유번호. 자동 조회를 붙일 때 쓴다
+  corpCode      String?
+  bizRegNo      String?
+
+  // 인력
+  employeeTotal     Int?
+  employeeRegular   Int?
+  employeeIrregular Int?
+  /// 평균 근속연수. 퇴직율은 공개되지 않으므로 이 값으로 대신 본다.
+  /// 근속이 짧으면 신입 유입이 많다는 뜻이라 신입 과정 제안 근거가 된다.
+  avgTenureYears    Float?
+  /// 국민연금 가입자수 — 비상장 기업의 사실상 정직원 수
+  pensionSubscribers Int?
+  pensionAsOf        String?
+  /// 최근 3년 인원 증감 서술
+  headcountTrend     String?
+
+  // 채용
+  hiringMode     String?
+  /// 통상 채용 시기 (쉼표로 구분한 월)
+  hiringMonths   String?
+  hiringScale    String?
+  recentPostings String?
+  careersUrl     String?
+
+  // HRD · 조직문화
+  mission          String?
+  vision           String?
+  coreValues       String?
+  talentProfile    String?
+  cultureNote      String?
+  trainingPrograms String?
+  hrdOrgStructure  String?
+  hrdDirection     String?
+
+  // 경영
+  revenue            String?
+  operatingProfit    String?
+  financialsAsOf     String?
+  sustainabilityUrl  String?
+  sustainabilityNote String?
+
+  // 우리 관점
+  salesAngle    String?
+  expectedNeeds String?
+  cautions      String?
+
+  // 메타
+  researchedAt DateTime?
+  researchedBy String?
+  /// 찾아봤지만 확인되지 않은 항목. 빈칸("아직 안 봄")과 구분하기 위해 따로 남긴다.
+  gaps         String?
+
+  sources ResearchSource[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyName])
+}
+
+/// 근거. 출처 없는 값은 상담에서 쓸 수 없으므로 화면에서 항상 같이 보여준다.
+model ResearchSource {
+  id String @id @default(cuid())
+
+  researchId String
+  research   CompanyResearch @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  /// 공시 / 뉴스 / 홈페이지 / 채용 / 보고서 / 기타
+  kind        String    @default("기타")
+  title       String
+  publisher   String?
+  url         String?
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([researchId])
+}
+
+// ---------------------------------------------------------------------------
+//  HRD 트렌드
+//
+//  국내 기관 사이트의 RSS 주소는 바뀌거나 아예 없는 경우가 많다.
+//  그래서 소스를 코드에 박지 않고 화면에서 등록·수정하게 한다.
+// ---------------------------------------------------------------------------
+
+model TrendSource {
+  id String @id @default(cuid())
+
+  name String
+  /// rss   — url 에서 RSS/Atom 을 읽는다
+  /// naver — keyword 로 네이버 뉴스 검색 API 를 호출한다
+  kind String @default("rss")
+
+  url     String?
+  keyword String?
+
+  /// HRD / 채용 / 경제 / AI / 글로벌
+  category String @default("HRD")
+
+  isActive Boolean @default(true)
+
+  lastFetchedAt DateTime?
+  lastError     String?
+  lastItemCount Int?
+
+  items TrendItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+model TrendItem {
+  id String @id @default(cuid())
+
+  sourceId String
+  source   TrendSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  title String
+  /// 같은 기사를 여러 소스가 물어와도 한 번만 남게 한다
+  url   String @unique
+
+  publisher   String?
+  publishedAt DateTime?
+  summary     String?
+  category    String    @default("HRD")
+
+  isPinned Boolean   @default(false)
+  readAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([publishedAt])
+  @@index([category])
+  @@index([isPinned])
+}
+
+/// 주간 브리핑 — 모아둔 기사를 AI 가 요약해 "그래서 어디로 가는가"를 정리한 문서.
+/// Claude API 키(.env 의 ANTHROPIC_API_KEY)가 있어야 만들 수 있다.
+model TrendBrief {
+  id String @id @default(cuid())
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  /// 요약에 쓴 기사 수
+  itemCount Int
+
+  /// 브리핑 본문 (마크다운)
+  content String
+
+  /// 어떤 모델이 썼는지 — 나중에 품질 비교용
+  model String
+
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
