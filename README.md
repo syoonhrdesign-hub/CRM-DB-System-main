@@ -3,52 +3,182 @@
 기업·기관을 상대로 교육을 진행하는 회사를 위한 고객 관리 시스템입니다.
 고객사 DB, 담당자, 교육 과정과 진행 이력, 영업 파이프라인, 활동 기록을 한곳에서 관리합니다.
 
-## 3명이 함께 쓰기 — 배포
+## 사무실 PC 에 설치하기 (Windows)
 
-이 시스템은 **로그인한 사람만** 들어올 수 있습니다. 고객사 연락처와 거래 정보를
-다루므로 인증 없이 인터넷에 올리면 안 됩니다.
+사무실 PC 한 대를 서버로 쓰고, 3명이 사내 와이파이로 접속하는 방식입니다.
+**고객사 정보가 회사 밖으로 나가지 않고 비용도 들지 않습니다.**
 
-### 1. 데이터베이스 (Neon · 무료)
+> 서버로 쓸 PC 는 **업무 시간에 계속 켜져 있어야** 합니다. 그 PC 가 꺼지면 아무도 쓸 수 없습니다.
+> 절전 모드로 들어가도 접속이 끊기므로, 전원 설정에서 절전을 꺼 두세요.
+> (설정 → 시스템 → 전원 → 화면 및 절전 → "다음 시간이 지나면 PC 를 절전 모드로 전환" → 안 함)
 
-1. https://neon.tech 가입 → 새 프로젝트 생성 (리전은 `Asia Pacific (Seoul)` 권장)
-2. 대시보드의 **Connection string** 복사 (`postgresql://...` 형태)
+### 1단계. PostgreSQL 설치
 
-### 2. Vercel 배포
+1. https://www.postgresql.org/download/windows/ → **Download the installer**
+2. 최신 버전(17.x) 다운로드 후 실행
+3. 설치 중 물어보는 것들:
+   - **Password** — 데이터베이스 비밀번호입니다. **꼭 적어 두세요.** 나중에 필요합니다.
+     영문자와 숫자로만 만드세요 (`@` `:` `/` 같은 기호는 주소에 넣을 때 문제가 됩니다)
+   - **Port** — `5432` 그대로 두기
+   - **Locale** — 기본값 그대로 두기
+   - Stack Builder 는 **실행하지 않아도 됩니다** (체크 해제)
 
-1. https://vercel.com 가입 후 이 저장소를 **Import**
-2. **Environment Variables** 에 두 개를 넣습니다.
+설치가 끝나면 시작 메뉴에서 **SQL Shell (psql)** 을 열고, 물어보는 것들은 Enter 로 넘긴 뒤
+Password 만 입력합니다. 그다음 아래 두 줄을 실행해 CRM 전용 계정과 DB 를 만듭니다.
 
-   | 이름 | 값 |
-   |---|---|
-   | `DATABASE_URL` | Neon 에서 복사한 연결 문자열 |
-   | `AUTH_SECRET` | `openssl rand -base64 32` 결과 (32자 이상) |
-
-3. Deploy — 빌드 과정에서 `prisma migrate deploy` 가 테이블을 자동으로 만듭니다.
-
-### 3. 첫 관리자 계정 만들기
-
-배포 직후에는 로그인할 계정이 하나도 없습니다. 로컬에서 한 번만 실행하세요.
-
-```bash
-# .env 의 DATABASE_URL 을 Neon 주소로 맞춘 뒤
-npm install
-npm run create-admin "홍길동" hong@example.com "본인이정한비밀번호10자이상"
+```sql
+CREATE USER crm WITH PASSWORD '아까정한비밀번호';
+CREATE DATABASE crm OWNER crm;
 ```
 
-이제 배포된 주소의 `/login` 에서 로그인하고, **사용자 관리** 메뉴에서 나머지 2명을
-추가하면 됩니다. 초기 비밀번호를 정해 전달하면 본인이 첫 로그인 때 바꿉니다.
+`\q` 를 입력하면 나옵니다.
 
-### 계정 운영 규칙
+### 2단계. Node.js 설치
 
-- **퇴사자는 삭제하지 말고 비활성화**하세요. 그 사람이 남긴 활동 기록과 담당 이력이
-  그대로 보존됩니다.
-- 관리자는 최소 한 명이 남아 있어야 하며, 본인의 관리자 권한은 스스로 해제할 수 없습니다.
-- 비밀번호를 잊으면 관리자가 **사용자 관리 → 수정 → 비밀번호 초기화**로 새 값을 정해 줍니다.
-- `AUTH_SECRET` 을 바꾸면 전원 로그아웃됩니다.
+https://nodejs.org → **LTS** 버전 다운로드 후 실행. 선택지는 모두 기본값으로 두면 됩니다.
 
-## 로컬에서 돌려보기
+### 3단계. 프로그램 내려받기
 
-PostgreSQL 이 필요합니다. Neon 무료 프로젝트를 하나 더 만들어 개발용으로 써도 됩니다.
+https://git-scm.com/download/win 에서 Git 을 설치한 뒤, 명령 프롬프트를 열고:
+
+```cmd
+cd C:\
+git clone https://github.com/syoonhrdesign-hub/CRM-DB-System-main.git crm
+cd crm
+git checkout claude/coding-itnm8d
+npm ci
+```
+
+### 4단계. 설정 파일 만들기
+
+```cmd
+copy .env.example .env
+notepad .env
+```
+
+메모장이 열리면 두 값을 채웁니다.
+
+- `DATABASE_URL` — `<비밀번호>` 자리에 1단계에서 정한 비밀번호를 넣습니다
+- `AUTH_SECRET` — 아래 명령을 실행해 나온 값을 따옴표 안에 붙여넣습니다
+
+```cmd
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### 5단계. 데이터베이스 준비와 첫 계정
+
+```cmd
+npx prisma generate
+npm run db:deploy
+npm run build
+npm run create-admin "본인이름" 본인이메일@회사.com "비밀번호10자이상"
+```
+
+> 연습용 데이터를 넣어 화면을 먼저 보고 싶다면 `npm run db:seed` 를 실행하세요.
+> **실제로 쓰기 시작할 때는 반드시 `npm run db:reset` 으로 지우고** 시작하세요.
+> 연습 데이터가 섞이면 나중에 골라내기 어렵습니다.
+
+### 6단계. 다른 PC 에서 접속되게 하기
+
+이 두 가지를 빠뜨리면 **본인 PC 에서만 되고 다른 사람은 접속하지 못합니다.**
+
+**(1) 방화벽에서 3000 포트 열기** — 명령 프롬프트를 **관리자 권한으로** 열고:
+
+```cmd
+netsh advfirewall firewall add rule name="CRM" dir=in action=allow protocol=TCP localport=3000
+```
+
+**(2) 이 PC 의 IP 고정하기** — 그냥 두면 IP 가 바뀌어 어느 날 갑자기 접속이 안 됩니다.
+
+설정 → 네트워크 및 인터넷 → 사용 중인 연결 → IP 할당 **편집** → **수동** → IPv4 켜기 →
+지금 쓰는 IP 를 그대로 입력하고 저장합니다. 지금 IP 는 `ipconfig` 로 확인할 수 있습니다
+(`IPv4 주소` 항목, 보통 `192.168.` 로 시작).
+
+### 7단계. 실행
+
+`deploy\windows\start-crm.bat` 를 더블클릭합니다.
+검은 창에 접속 주소가 표시됩니다. **이 창을 닫으면 서버가 꺼집니다** — 최소화해 두세요.
+
+나머지 2명은 브라우저에 `http://<서버IP>:3000` 을 입력하면 됩니다.
+(예: `http://192.168.0.10:3000` — 즐겨찾기에 등록해 두세요)
+
+관리자로 로그인한 뒤 **사용자 관리** 메뉴에서 나머지 2명의 계정을 만들고,
+초기 비밀번호를 알려 주면 본인이 첫 로그인 때 바꿉니다.
+
+### 8단계. PC 를 켜면 자동으로 실행되게 하기
+
+매번 더블클릭하는 것을 잊지 않도록 등록해 둡니다.
+
+1. 시작 메뉴에서 **작업 스케줄러** 실행
+2. 오른쪽 **작업 만들기**
+3. **일반** 탭 — 이름 `CRM 서버`, **가장 높은 수준의 권한으로 실행** 체크
+4. **트리거** 탭 — 새로 만들기 → 작업 시작: **로그온할 때**
+5. **동작** 탭 — 새로 만들기 → 프로그램: `C:\crm\deploy\windows\start-crm.bat`
+6. **조건** 탭 — "컴퓨터의 AC 전원이 켜져 있는 경우에만 시작" **체크 해제**
+
+---
+
+## 백업 — 반드시 설정하세요
+
+사무실 PC 방식의 유일한 치명적 약점입니다.
+**그 PC 가 고장나거나 도난당하면 그동안 쌓은 고객 정보가 전부 사라집니다.**
+클라우드와 달리 아무도 대신 백업해 주지 않습니다.
+
+### 설정
+
+1. `deploy\windows\backup.bat` 를 **메모장으로 열어** 맨 위 `BACKUP_DIR` 을 고칩니다.
+
+   **반드시 그 PC 가 아닌 곳**을 지정하세요. 같은 PC 에 백업하면 PC 가 죽을 때 백업도 같이 죽습니다.
+
+   - 구글 드라이브 / 원드라이브 동기화 폴더 (권장 — 자동으로 클라우드에 올라감)
+   - 네트워크 드라이브 (`Z:\CRM백업`)
+   - 항상 꽂아 두는 USB
+
+   > 백업 파일에도 고객 정보가 들어 있습니다. 개인 계정 클라우드가 아니라
+   > 회사 계정에 올리고, 폴더 공유 설정을 확인하세요.
+
+2. 한 번 더블클릭해서 백업이 되는지 확인합니다.
+3. 작업 스케줄러에 **매일 새벽 3시** 로 등록합니다
+   (8단계와 같은 방법, 트리거를 "매일"로, 프로그램 인수에 `/auto` 입력)
+
+### 복원을 한 번은 연습하세요
+
+**복원해 본 적 없는 백업은 백업이 아닙니다.** 정작 필요할 때 안 되는 경우가 많습니다.
+
+`deploy\windows\restore.bat` 위로 백업 파일을 끌어다 놓으면 복원됩니다.
+지금 데이터가 얼마 없을 때 한 번 해 보세요.
+
+---
+
+## 나중에 외근·재택에서도 쓰려면
+
+지금은 사내 와이파이에서만 접속됩니다. 밖에서도 봐야 할 일이 생기면
+**Cloudflare Tunnel** 을 권합니다. 공유기 설정을 건드리지 않고, 주소에 자물쇠(https)가
+붙으며, 무료입니다.
+
+1. https://one.dash.cloudflare.com → Zero Trust → Networks → Tunnels → Create a tunnel
+2. Windows 용 커넥터를 설치하면 `https://무엇무엇.trycloudflare.com` 같은 주소를 줍니다
+3. `next.config.ts` 에 그 주소를 등록합니다:
+
+   ```ts
+   const nextConfig: NextConfig = {
+     typedRoutes: false,
+     experimental: {
+       serverActions: { allowedOrigins: ["무엇무엇.trycloudflare.com"] },
+     },
+   };
+   ```
+
+4. `npm run build` 후 서버를 다시 켭니다
+
+세션 쿠키는 접속이 https 인지 자동으로 판단하므로 **다른 설정은 건드릴 필요가 없습니다.**
+
+> 밖에서 접근할 수 있게 되면 비밀번호 관리가 훨씬 중요해집니다.
+> 짧거나 다른 사이트와 같은 비밀번호는 쓰지 마세요.
+
+---
+
+## 개발자용 — 코드를 고칠 때
 
 ```bash
 npm install
@@ -65,18 +195,7 @@ npm run dev               # http://localhost:3000
 | consultant@example.com | 정컨설 | 일반 |
 | manager@example.com | 이매니저 | 일반 |
 
-> 데모 계정은 실제 운영에 쓰지 마세요. `npm run create-admin` 으로 본인 계정을 만들고
-> 데모 계정은 비활성화하거나, 처음부터 시드 없이 시작하세요.
-
-데모 데이터 없이 빈 상태로 시작하려면:
-
-```bash
-npm install
-cp .env.example .env
-npx prisma generate && npx prisma migrate deploy
-npm run create-admin "이름" 이메일 비밀번호
-npm run dev
-```
+> 데모 계정은 실제 운영에 쓰지 마세요.
 
 ## 화면 구성
 
@@ -219,7 +338,7 @@ Organization (고객사)
 ## 기술 스택
 
 - **Next.js 15** (App Router, Server Actions) — 별도 API 서버 없이 서버에서 직접 DB 접근
-- **Prisma 6 + PostgreSQL** — 여러 명이 동시에 쓰는 것을 전제로 함 (Neon 무료 티어로 충분)
+- **Prisma 6 + PostgreSQL** — 여러 명이 동시에 쓰는 것을 전제로 함
 - **자체 인증** — scrypt 비밀번호 해싱 + 서명된 세션 쿠키(JWT). 외부 인증 서비스 없음
 - **Tailwind CSS 4** — 라이트/다크 모드는 시스템 설정을 따름
 - **TypeScript**
@@ -231,7 +350,9 @@ Organization (고객사)
 - 비밀번호는 **scrypt 해시로만** 저장합니다. 평문은 DB·로그 어디에도 남지 않습니다.
 - 로그인 실패 시 계정이 있든 없든 **같은 메시지·비슷한 응답 시간**으로 답합니다.
   응답 차이로 가입 여부를 알아내지 못하게 하기 위해서입니다.
-- 세션 쿠키는 `httpOnly` + `sameSite=lax`, 운영 환경에서는 `secure` 로 발급됩니다.
+- 세션 쿠키는 `httpOnly` + `sameSite=lax` 로 발급되며, **접속이 https 일 때만** `secure` 가
+  붙습니다. 실행 모드가 아니라 실제 접속 방식을 보기 때문에, 사내망(http)에서는 로그인이
+  정상 동작하고 나중에 외부 접속(https)을 붙이면 자동으로 강화됩니다.
 - 계정을 비활성화하면 이미 발급된 세션도 즉시 무효가 됩니다. 매 요청마다 DB 에서
   활성 여부를 다시 확인하기 때문입니다.
 
@@ -241,11 +362,11 @@ Organization (고객사)
 |---|---|
 | `npm run dev` | 개발 서버 |
 | `npm run build` | 프로덕션 빌드 |
-| `npm start` | 빌드 결과 실행 |
+| `npm start` | 빌드 결과 실행 (`0.0.0.0:3000` — 다른 PC 에서 접속 가능) |
 | `npm run setup` | 마이그레이션 + 데모 데이터 |
 | `npm run create-admin "이름" 이메일 비밀번호` | 첫 관리자 계정 생성 (배포 후 1회) |
 | `npm run db:migrate` | 스키마를 바꾼 뒤 마이그레이션 파일 생성 |
-| `npm run db:deploy` | 마이그레이션을 DB 에 적용 (배포 시 자동 실행됨) |
+| `npm run db:deploy` | 마이그레이션을 DB 에 적용 |
 | `npm run db:seed` | 데모 데이터 입력 (기존 데이터를 지웁니다) |
 | `npm run db:studio` | Prisma Studio 로 데이터 직접 확인 |
 
@@ -257,3 +378,4 @@ Organization (고객사)
 - **엑셀 가져오기/내보내기** — 기존에 엑셀로 관리하던 고객사 명단 일괄 등록
 - **첨부파일 보관** — 제안서, 견적서, 계약서
 - **명함 이미지 업로드** — 지금은 외부 링크만 넣을 수 있습니다
+- **서버 이중화** — 서버 PC 한 대에 의존합니다. 그래서 백업이 특히 중요합니다

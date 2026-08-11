@@ -1,0 +1,16 @@
+# Windows 배치 파일은 반드시 CRLF 로 유지한다.
+# LF 로 내려받히면 cmd.exe 가 라벨(:loop)과 goto 를 제대로 처리하지 못해
+# 서버 자동 재시작이 동작하지 않는다.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 나머지 텍스트 파일은 LF 로 통일
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.css  text eol=lf
+*.prisma text eol=lf
+*.sql  text eol=lf

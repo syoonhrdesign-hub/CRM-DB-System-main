@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { hashPassword, passwordProblem, verifyPassword } from "./auth";
@@ -24,6 +24,24 @@ function safeNext(value: string): string {
   return value;
 }
 
+/**
+ * 이 요청이 https 로 들어왔는가.
+ *
+ * secure 쿠키는 https 연결에서만 브라우저가 돌려보낸다.
+ * 사내망은 http://192.168.x.x:3000 처럼 http 로 접속하므로,
+ * NODE_ENV 만 보고 secure 를 켜면 로그인 → 리다이렉트 → 로그인이 무한 반복된다.
+ *
+ * 그래서 실행 모드가 아니라 실제 접속 방식을 본다.
+ * 나중에 외부 접속을 붙이면(터널·리버스 프록시가 x-forwarded-proto: https 를 넣어 준다)
+ * 설정을 고치지 않아도 secure 가 저절로 켜진다.
+ */
+async function isHttpsRequest(): Promise<boolean> {
+  const h = await headers();
+  // 프록시를 여러 단 거치면 "https, http" 처럼 쌓이므로 맨 앞(원래 클라이언트)만 본다.
+  const proto = h.get("x-forwarded-proto")?.split(",")[0].trim();
+  return proto === "https";
+}
+
 async function setSessionCookie(user: {
   id: string;
   email: string;
@@ -40,7 +58,7 @@ async function setSessionCookie(user: {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: await isHttpsRequest(),
     path: "/",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
