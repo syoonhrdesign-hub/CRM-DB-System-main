@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/deals", label: "영업 파이프라인" },
   { href: "/trainings", label: "교육 진행" },
   { href: "/courses", label: "교육 과정" },
+  { href: "/distributions", label: "코드 배부" },
   { href: "/activities", label: "활동 기록" },
 ];
 

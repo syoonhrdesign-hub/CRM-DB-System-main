@@ -115,11 +115,12 @@ model Organization {
   /// 접촉 주기(주). 비워 두면 등급별 기본 주기를 따른다.
   contactCycleWeeks Int?
 
-  profile    AccountProfile?
-  contacts   Contact[]
-  trainings  Training[]
-  deals      Deal[]
-  activities Activity[]
+  profile       AccountProfile?
+  contacts      Contact[]
+  trainings     Training[]
+  deals         Deal[]
+  activities    Activity[]
+  distributions CodeDistribution[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,6 +128,104 @@ model Organization {
   @@index([name])
   @@index([status])
   @@index([orgType])
+}
+
+/// 진단 코드 배부 — 교육생이 스스로 자기 코드를 찾아가게 하는 공개 페이지 하나.
+///
+/// 교육생 수백 명에게 알림톡을 일일이 보내는 대신, 링크 하나를 고객사에 전달하면
+/// 각자 이름을 검색해 자기 코드를 확인한다.
+///
+/// 공개 페이지라 로그인이 없다. 그래서 두 가지로 보호한다.
+///  1. 주소(slug)를 길고 무작위하게 만들어 링크를 아는 사람만 들어오게 한다
+///  2. 이름을 정확히 맞춰야만 한 건이 나온다. 목록을 훑을 수는 없다
+model CodeDistribution {
+  id String @id @default(cuid())
+
+  /// 공개 주소에 쓰는 무작위 문자열 (/code/<slug>)
+  slug String @unique
+
+  /* 안내문 ---------------------------------------------------------------- */
+
+  /// 제목 위 한 줄 (예: 팀원 간 행동유형과 강점을 이해하여)
+  headline String?
+  /// 큰 제목 (예: k-DISC 진단 및 교육을 진행합니다)
+  title    String
+  /// 제목 아래 한 줄 (예: 사전 진단을 반드시 완료해 주세요)
+  subtitle String?
+
+  /* 교육 정보 — 교육생이 가장 먼저 확인하는 것들 -------------------------- */
+
+  eventAt     DateTime?
+  /// 시간 표기 (예: 09:30~11:30 (2시간))
+  eventTime   String?
+  /// 교육 장소 (예: 롯데GRS 아카데미 503호)
+  venue       String?
+  /// 대상 (예: 인재육성팀 전원 (17명))
+  audience    String?
+  /// 강사 (예: 정하늘 (네오아이즈 전문강사))
+  instructor  String?
+
+  /// 진단을 실제로 보는 사이트 주소. 코드와 함께 안내한다.
+  targetUrl String?
+
+  /// 유의사항 — 줄바꿈으로 여러 개를 적는다
+  notices String?
+  /// 문의처 (예: 인재육성팀 정소영 프로 (02-709-1085))
+  inquiry String?
+
+  /// 안내 문구 — 진단 방법이나 기한을 적어 둔다
+  guide String?
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  trainingId String?
+  training   Training? @relation(fields: [trainingId], references: [id], onDelete: SetNull)
+
+  /// 동명이인이 있을 때 한 사람을 특정하기 위한 추가 확인 항목
+  /// none / phone4(휴대폰 뒤 4자리) / employeeId(사번)
+  verifyField String @default("none")
+
+  /// 기간을 벗어나면 조회되지 않는다
+  opensAt  DateTime?
+  closesAt DateTime?
+
+  isActive Boolean @default(true)
+
+  createdBy String?
+
+  participants ParticipantCode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+}
+
+/// 교육생 한 명과 그가 받을 코드
+model ParticipantCode {
+  id String @id @default(cuid())
+
+  distributionId String
+  distribution   CodeDistribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+
+  name String
+  code String
+
+  /// 소속·부서 — 동명이인 구분과 안내에 쓴다
+  department String?
+
+  /// 추가 확인 값 (휴대폰 뒤 4자리 또는 사번). verifyField 가 none 이면 비워 둔다.
+  verifyValue String?
+
+  /// 본인이 코드를 확인했는가 — 아직 안 본 사람만 따로 챙길 수 있다
+  viewedAt  DateTime?
+  viewCount Int       @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([distributionId])
+  @@index([name])
 }
 
 /// 고객사 프로파일 — 통화·미팅에서 파악해야 할 항목들을 한곳에 모은다.
@@ -351,6 +450,8 @@ model Training {
   satisfaction Float?
 
   memo String?
+
+  distributions CodeDistribution[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

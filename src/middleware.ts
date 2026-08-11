@@ -8,8 +8,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, readSessionToken } from "@/lib/session-token";
 
-/** 로그인 없이 열어 두는 경로 */
-const PUBLIC_PATHS = ["/login"];
+/**
+ * 로그인 없이 열어 두는 경로.
+ *
+ * /code 는 교육생이 자기 진단 코드를 확인하는 공개 페이지다.
+ * 교육생은 이 CRM 의 사용자가 아니므로 로그인을 요구할 수 없다.
+ * 대신 주소(slug)를 무작위로 만들고, 이름을 정확히 맞춰야만
+ * 한 건이 나오도록 해서 명단이 통째로 새지 않게 한다.
+ */
+const PUBLIC_PATHS = ["/login", "/code"];
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
