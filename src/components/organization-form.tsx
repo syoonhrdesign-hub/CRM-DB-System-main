@@ -2,11 +2,12 @@ import type { Organization } from "@prisma/client";
 import Link from "next/link";
 import {
   INDUSTRIES,
+  MEET_CHANNELS,
   ORG_STATUSES,
   ORG_TYPES,
   SIZE_TIERS,
 } from "@/lib/constants";
-import { formatBizRegNo } from "@/lib/format";
+import { formatBizRegNo, toDateInput } from "@/lib/format";
 import { SubmitButton } from "./buttons";
 import { Field, FormActions, FormGrid, Select, Textarea, TextInput } from "./form";
 
@@ -120,6 +121,35 @@ export function OrganizationForm({
             defaultValue={organization?.ownerName}
             placeholder="예: 김영업"
           />
+        </Field>
+
+        <h3 className="mt-2 border-b border-line pb-1.5 text-sm font-bold sm:col-span-2">
+          최초 접촉
+        </h3>
+
+        <Field label="처음 접촉한 날" htmlFor="firstContactAt">
+          <TextInput
+            name="firstContactAt"
+            type="date"
+            defaultValue={toDateInput(organization?.firstContactAt)}
+          />
+        </Field>
+
+        <Field
+          label="유입 경로"
+          htmlFor="acquisitionChannel"
+          hint="어디서 이 고객사를 알게 됐는지 — 어떤 채널이 실제로 매출로 이어지는지 나중에 확인할 수 있습니다."
+        >
+          <Select
+            name="acquisitionChannel"
+            options={MEET_CHANNELS}
+            defaultValue={organization?.acquisitionChannel}
+            placeholder="선택 안 함"
+          />
+        </Field>
+
+        <Field label="소개해 준 사람 · 기관" htmlFor="referredBy" span={2}>
+          <TextInput name="referredBy" defaultValue={organization?.referredBy} />
         </Field>
 
         <Field label="메모" htmlFor="memo" span={2}>

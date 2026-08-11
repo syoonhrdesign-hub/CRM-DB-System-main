@@ -74,6 +74,71 @@ export const DEAL_STAGE_PROBABILITY: Record<string, number> = {
 /** 파이프라인에서 이미 끝난 단계 — 진행 중 예상매출 집계에서 제외한다. */
 export const CLOSED_STAGES = ["완료", "실패"] as const;
 
+/* -------------------------------------------------------------------------- */
+/*  담당자 · 명함                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** 담당자 재직 상태 — "재직"이 아니면 담당자 변경 이력으로 잡힌다. */
+export const CONTACT_STATUSES = [
+  "재직",
+  "휴직",
+  "퇴사",
+  "타부서이동",
+  "타사이직",
+] as const;
+
+export const CONTACT_STATUS_TONE: Record<string, BadgeTone> = {
+  재직: "green",
+  휴직: "amber",
+  퇴사: "gray",
+  타부서이동: "blue",
+  타사이직: "violet",
+};
+
+export const CONTACT_CHANGE_REASONS = [
+  "인사이동",
+  "승진",
+  "퇴사",
+  "조직개편",
+  "업무분장 변경",
+  "이직",
+  "기타",
+] as const;
+
+/** 처음 만난 경로 — 고객사 유입 경로와 담당자 첫 만남에 같이 쓴다. */
+export const MEET_CHANNELS = [
+  "전시회·박람회",
+  "세미나·컨퍼런스",
+  "지인 소개",
+  "기존 고객 소개",
+  "인바운드 문의",
+  "콜드콜",
+  "이메일 영업",
+  "입찰 설명회",
+  "협회·단체",
+  "온라인 검색",
+  "기타",
+] as const;
+
+/* -------------------------------------------------------------------------- */
+/*  기업 프로파일                                                              */
+/* -------------------------------------------------------------------------- */
+
+/** 내근직 / 현장직 — 교육 방식(집합·교대조·온라인)을 좌우한다. */
+export const WORKFORCE_TYPES = ["내근직 중심", "현장직 중심", "혼합"] as const;
+
+export const BUDGET_CYCLES = ["연간", "반기", "분기", "수시"] as const;
+
+export const EXPANSION_LEVELS = ["높음", "보통", "낮음"] as const;
+
+export const EXPANSION_TONE: Record<string, BadgeTone> = {
+  높음: "green",
+  보통: "amber",
+  낮음: "gray",
+};
+
+export const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
 export const ACTIVITY_TYPES = [
   "전화",
   "이메일",

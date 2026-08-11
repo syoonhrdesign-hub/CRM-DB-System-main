@@ -6,6 +6,7 @@ import { useState } from "react";
 
 const LINKS = [
   { href: "/", label: "대시보드" },
+  { href: "/agenda", label: "컨택 아젠다" },
   { href: "/organizations", label: "고객사" },
   { href: "/contacts", label: "담당자" },
   { href: "/deals", label: "영업 파이프라인" },

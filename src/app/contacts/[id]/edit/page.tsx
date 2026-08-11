@@ -27,6 +27,13 @@ export default async function EditContactPage({
 
   if (!contact) notFound();
 
+  // 후임 지정 목록 — 같은 고객사의 다른 담당자만
+  const siblings = await db.contact.findMany({
+    where: { organizationId: contact.organizationId, NOT: { id } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, department: true },
+  });
+
   const update = updateContact.bind(null, id);
   const remove = deleteContact.bind(null, id);
 
@@ -42,6 +49,7 @@ export default async function EditContactPage({
           action={update}
           contact={contact}
           organizations={organizations}
+          siblings={siblings}
         />
       </Card>
 

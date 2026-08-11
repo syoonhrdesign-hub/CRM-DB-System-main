@@ -20,9 +20,9 @@ model Organization {
   shortName String? // 약칭 (예: 한전)
   bizRegNo  String? @unique // 사업자등록번호 (000-00-00000)
 
-  orgType  String @default("기업") // 기업 / 공공기관 / 지자체 / 대학 / 병원 / 비영리 / 기타
-  industry String? // 업종 (제조, 금융, IT, 유통 ...)
-  sizeTier String? // 대기업 / 중견기업 / 중소기업 / 스타트업
+  orgType       String  @default("기업") // 기업 / 공공기관 / 지자체 / 대학 / 병원 / 비영리 / 기타
+  industry      String? // 업종 (제조, 금융, IT, 유통 ...)
+  sizeTier      String? // 대기업 / 중견기업 / 중소기업 / 스타트업
   employeeCount Int? // 임직원 수 — 교육 규모 산정 기준
 
   status String @default("잠재고객") // 잠재고객 / 거래중 / 휴면 / 종료
@@ -36,10 +36,49 @@ model Organization {
 
   memo String?
 
-  contacts      Contact[]
-  trainings     Training[]
-  deals         Deal[]
-  activities    Activity[]
+  /* ---------------------------------------------------------------------- */
+  /*  최초 접촉                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  /// 이 고객사를 처음 알게 된 경로 (전시회 / 세미나 / 소개 / 인바운드 문의 ...)
+  acquisitionChannel String?
+  firstContactAt     DateTime?
+  /// 소개로 들어왔다면 소개해 준 사람·기관
+  referredBy         String?
+
+  /* ---------------------------------------------------------------------- */
+  /*  등급 평가 — 5개 축을 1~5점으로 매기고 가중 평균으로 S~D 등급을 낸다.      */
+  /*  계산 로직과 가중치는 src/lib/grade.ts 한 곳에만 있다.                    */
+  /* ---------------------------------------------------------------------- */
+
+  /// 실제 구매 빈도
+  scorePurchase  Int?
+  /// 신뢰도 · 대외 상징성 (레퍼런스로 쓸 수 있는가)
+  scoreTrust     Int?
+  /// 재교육 가능 여부 (같은 과정을 다시 열 수 있는가)
+  scoreRetrain   Int?
+  /// 반복 교육 가능 여부 (정기 과정으로 자리잡을 수 있는가)
+  scoreRecurring Int?
+  /// 솔루션 제안 가능 여부 (단발 과정을 넘어 체계 구축을 제안할 수 있는가)
+  scoreSolution  Int?
+
+  /// 계산된 등급을 무시하고 직접 지정할 때 사용 (S / A / B / C / D)
+  gradeOverride String?
+  gradeMemo     String?
+  gradedAt      DateTime?
+
+  /* ---------------------------------------------------------------------- */
+  /*  정례 접촉 관리                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  /// 접촉 주기(주). 비워 두면 등급별 기본 주기를 따른다.
+  contactCycleWeeks Int?
+
+  profile    AccountProfile?
+  contacts   Contact[]
+  trainings  Training[]
+  deals      Deal[]
+  activities Activity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -47,6 +86,72 @@ model Organization {
   @@index([name])
   @@index([status])
   @@index([orgType])
+}
+
+/// 고객사 프로파일 — 통화·미팅에서 파악해야 할 항목들을 한곳에 모은다.
+/// 채워진 항목 수로 "우리가 이 고객사를 얼마나 아는가"(프로파일 완성도)를 계산한다.
+model AccountProfile {
+  id String @id @default(cuid())
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /* 조직 구조 ------------------------------------------------------------ */
+
+  /// 내근직 / 현장직 / 혼합 — 교육 방식(집합·온라인·교대조)을 좌우한다
+  workforceType String?
+  /// 현장직 비율(%) — 혼합일 때 교대 편성 규모 산정에 쓴다
+  fieldRatio    Int?
+
+  /// HR 조직 구조 (인재개발원 별도 / 인사팀 내 교육파트 / 전담 없음 ...)
+  hrStructure   String?
+  /// 교육 담당 인원 수
+  hrHeadcount   Int?
+  /// 의사결정 구조 (실무자 검토 → 팀장 전결 / 임원 보고 필요 ...)
+  decisionProcess String?
+
+  /* 예산 ----------------------------------------------------------------- */
+
+  /// 회계연도 시작 월 (1~12). 공공기관은 대개 1월, 일부 기업은 4월·7월
+  fiscalStartMonth Int?
+  /// 다음 해 교육 예산을 편성하는 월 (1~12) — 제안 타이밍의 핵심
+  budgetMonth      Int?
+  /// 예산 확정 주기 (연간 / 반기 / 분기 / 수시)
+  budgetCycle      String?
+  /// 연간 교육 예산 규모(원)
+  budgetScale      Int?
+  budgetNote       String?
+
+  /* 시즌 ----------------------------------------------------------------- */
+
+  /// 채용이 몰리는 월 — "3,9" 처럼 콤마로 구분해 저장한다
+  hiringMonths   String?
+  hiringNote     String?
+  /// 교육이 몰리는 월 — "3,4,10,11"
+  trainingMonths String?
+  /// 시즌별로 어떤 교육을 하는지
+  trainingNote   String?
+
+  /* 교육·문화 ------------------------------------------------------------ */
+
+  /// 매년 반복하는 정기 교육 (신입 입문, 승진자 과정, 법정의무 ...)
+  regularPrograms   String?
+  /// 조직문화 관련 활동 (워크숍, 타운홀, 서베이 ...)
+  cultureActivities String?
+  /// 기존 거래 교육업체 · 경쟁사
+  competitors       String?
+
+  /* 확장 가능성 ---------------------------------------------------------- */
+
+  /// 타 부서 소개·확장 가능성 (높음 / 보통 / 낮음)
+  expansionLevel       String?
+  /// 확장 가능한 부서 이름
+  expansionDepartments String?
+
+  notes String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 /// 고객사 담당자 (교육 담당자, 인사팀 등)
@@ -68,29 +173,102 @@ model Contact {
 
   memo String?
 
-  deals      Deal[]
-  activities Activity[]
+  /* ---------------------------------------------------------------------- */
+  /*  첫 만남 — 어디서 처음 만났는지                                          */
+  /* ---------------------------------------------------------------------- */
+
+  firstMetAt      DateTime?
+  /// 만난 경로 (전시회 / 세미나 / 소개 / 인바운드 / 콜드콜 / 입찰설명회 ...)
+  firstMetChannel String?
+  /// 구체적인 장소·행사명 (예: 2025 HRD 컨퍼런스, 코엑스)
+  firstMetPlace   String?
+  /// 소개해 준 사람
+  referredBy      String?
+
+  /* ---------------------------------------------------------------------- */
+  /*  재직 상태와 인수인계                                                    */
+  /*  담당자 정보를 여기서 갱신하면 고객사 화면의 "담당자 변경 이력"이          */
+  /*  자동으로 만들어진다. 별도 이력 테이블에 다시 입력할 필요가 없다.          */
+  /* ---------------------------------------------------------------------- */
+
+  /// 재직 / 휴직 / 퇴사 / 타부서이동 / 타사이직
+  status String @default("재직")
+
+  /// 이 사람이 우리 창구가 된 날 / 창구에서 빠진 날
+  assignedFrom  DateTime?
+  assignedUntil DateTime?
+
+  /// 변경 사유 (인사이동 / 퇴사 / 조직개편 / 업무분장 변경 ...)
+  changeReason String?
+  /// 인계 내용
+  handoverNote String?
+
+  /// 후임 담당자
+  successorId String?  @unique
+  successor   Contact? @relation("ContactSuccession", fields: [successorId], references: [id], onDelete: SetNull)
+  predecessor Contact? @relation("ContactSuccession")
+
+  businessCards BusinessCard[]
+  deals         Deal[]
+  activities    Activity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([name])
+  @@index([status])
+}
+
+/// 명함 이력 — 받은 명함을 시점별로 남긴다.
+/// 승진·부서이동·이직으로 직함과 소속이 바뀌는 과정이 그대로 기록된다.
+model BusinessCard {
+  id String @id @default(cuid())
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  /// 명함을 받은 날
+  receivedAt DateTime
+
+  /// 명함에 적힌 값 — 현재 담당자 정보와 별개로 그 시점의 사실을 보존한다
+  companyName String?
+  department  String?
+  position    String?
+  email       String?
+  phone       String?
+  mobile      String?
+  address     String?
+
+  /// 어디서 받았는지 (전시회 / 세미나 / 방문미팅 / 소개 ...)
+  receivedChannel String?
+  receivedPlace   String?
+
+  /// 명함 이미지 링크 (사내 드라이브 등)
+  imageUrl String?
+
+  memo String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contactId])
+  @@index([receivedAt])
 }
 
 /// 자사 교육 과정 마스터
 model Course {
   id String @id @default(cuid())
 
-  code String  @unique // LDR-001
+  code String @unique // LDR-001
   name String // 신임팀장 리더십 과정
 
   category String @default("직무") // 리더십 / 직무 / 법정의무 / DX / CS / 기타
   format   String @default("집합") // 집합 / 온라인 / 블렌디드
 
-  durationHours   Float @default(8) // 총 시수
-  defaultPrice    Int   @default(0) // 1인당 기본 단가(원)
-  minHeadcount    Int? // 최소 개설 인원
+  durationHours Float @default(8) // 총 시수
+  defaultPrice  Int   @default(0) // 1인당 기본 단가(원)
+  minHeadcount  Int? // 최소 개설 인원
 
   description String?
   isActive    Boolean @default(true)
@@ -119,9 +297,9 @@ model Training {
   startDate DateTime
   endDate   DateTime?
 
-  headcount    Int    @default(0) // 수료 인원
-  pricePerHead Int    @default(0) // 1인당 단가(원)
-  totalAmount  Int    @default(0) // 총 계약금액(원) — 인원×단가와 다를 수 있어 별도 보관
+  headcount    Int @default(0) // 수료 인원
+  pricePerHead Int @default(0) // 1인당 단가(원)
+  totalAmount  Int @default(0) // 총 계약금액(원) — 인원×단가와 다를 수 있어 별도 보관
 
   location   String? // 고객사 연수원 / 자사 강의장 / 온라인
   instructor String? // 담당 강사
@@ -155,8 +333,8 @@ model Deal {
 
   stage String @default("문의") // 문의 / 제안 / 견적 / 계약 / 완료 / 실패
 
-  expectedAmount Int  @default(0) // 예상 매출(원)
-  probability    Int  @default(20) // 성사 확률(%)
+  expectedAmount Int @default(0) // 예상 매출(원)
+  probability    Int @default(20) // 성사 확률(%)
 
   expectedCloseDate DateTime?
   closedAt          DateTime?

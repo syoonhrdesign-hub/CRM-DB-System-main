@@ -41,6 +41,12 @@ function organizationData(fd: FormData) {
     address: optStr(fd, "address"),
     ownerName: optStr(fd, "ownerName"),
     memo: optStr(fd, "memo"),
+
+    acquisitionChannel: optStr(fd, "acquisitionChannel"),
+    firstContactAt: optDate(fd, "firstContactAt"),
+    referredBy: optStr(fd, "referredBy"),
+
+    contactCycleWeeks: optInt(fd, "contactCycleWeeks"),
   };
 }
 
@@ -72,6 +78,93 @@ export async function deleteOrganization(id: string) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  등급 평가                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** 1~5 범위를 벗어나거나 비어 있으면 "평가 안 함"(null)으로 둔다. */
+function score(fd: FormData, key: string): number | null {
+  const v = optInt(fd, key);
+  if (v == null || v < 1 || v > 5) return null;
+  return v;
+}
+
+export async function updateGrade(id: string, fd: FormData) {
+  await db.organization.update({
+    where: { id },
+    data: {
+      scorePurchase: score(fd, "scorePurchase"),
+      scoreRecurring: score(fd, "scoreRecurring"),
+      scoreRetrain: score(fd, "scoreRetrain"),
+      scoreSolution: score(fd, "scoreSolution"),
+      scoreTrust: score(fd, "scoreTrust"),
+      gradeOverride: optStr(fd, "gradeOverride"),
+      gradeMemo: optStr(fd, "gradeMemo"),
+      contactCycleWeeks: optInt(fd, "contactCycleWeeks"),
+      gradedAt: new Date(),
+    },
+  });
+
+  revalidatePath(`/organizations/${id}`);
+  revalidatePath("/organizations");
+  revalidatePath("/agenda");
+  redirect(`/organizations/${id}`);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  기업 프로파일                                                               */
+/* -------------------------------------------------------------------------- */
+
+/** 체크박스로 고른 월들을 "3,9" 형태의 문자열로 모은다. */
+function monthList(fd: FormData, key: string): string | null {
+  const values = fd
+    .getAll(key)
+    .map((v) => Number.parseInt(String(v), 10))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 12)
+    .sort((a, b) => a - b);
+  return values.length > 0 ? values.join(",") : null;
+}
+
+export async function updateProfile(organizationId: string, fd: FormData) {
+  const data = {
+    workforceType: optStr(fd, "workforceType"),
+    fieldRatio: optInt(fd, "fieldRatio"),
+    hrStructure: optStr(fd, "hrStructure"),
+    hrHeadcount: optInt(fd, "hrHeadcount"),
+    decisionProcess: optStr(fd, "decisionProcess"),
+
+    fiscalStartMonth: optInt(fd, "fiscalStartMonth"),
+    budgetMonth: optInt(fd, "budgetMonth"),
+    budgetCycle: optStr(fd, "budgetCycle"),
+    budgetScale: optInt(fd, "budgetScale"),
+    budgetNote: optStr(fd, "budgetNote"),
+
+    hiringMonths: monthList(fd, "hiringMonths"),
+    hiringNote: optStr(fd, "hiringNote"),
+    trainingMonths: monthList(fd, "trainingMonths"),
+    trainingNote: optStr(fd, "trainingNote"),
+
+    regularPrograms: optStr(fd, "regularPrograms"),
+    cultureActivities: optStr(fd, "cultureActivities"),
+    competitors: optStr(fd, "competitors"),
+
+    expansionLevel: optStr(fd, "expansionLevel"),
+    expansionDepartments: optStr(fd, "expansionDepartments"),
+
+    notes: optStr(fd, "notes"),
+  };
+
+  await db.accountProfile.upsert({
+    where: { organizationId },
+    create: { organizationId, ...data },
+    update: data,
+  });
+
+  revalidatePath(`/organizations/${organizationId}`);
+  revalidatePath("/agenda");
+  redirect(`/organizations/${organizationId}`);
+}
+
+/* -------------------------------------------------------------------------- */
 /*  담당자                                                                      */
 /* -------------------------------------------------------------------------- */
 
@@ -86,6 +179,18 @@ function contactData(fd: FormData) {
     mobile: optStr(fd, "mobile"),
     isPrimary: bool(fd, "isPrimary"),
     memo: optStr(fd, "memo"),
+
+    firstMetAt: optDate(fd, "firstMetAt"),
+    firstMetChannel: optStr(fd, "firstMetChannel"),
+    firstMetPlace: optStr(fd, "firstMetPlace"),
+    referredBy: optStr(fd, "referredBy"),
+
+    status: str(fd, "status") || "재직",
+    assignedFrom: optDate(fd, "assignedFrom"),
+    assignedUntil: optDate(fd, "assignedUntil"),
+    changeReason: optStr(fd, "changeReason"),
+    handoverNote: optStr(fd, "handoverNote"),
+    successorId: optStr(fd, "successorId"),
   };
 }
 
@@ -101,10 +206,30 @@ async function demoteOtherPrimaries(organizationId: string, keepId?: string) {
   });
 }
 
+/**
+ * 후임 지정은 1:1 관계라 이미 다른 사람의 후임으로 잡혀 있으면 저장이 실패한다.
+ * 저장을 막는 대신 기존 연결을 끊어 주는 편이 실제 인수인계 상황에 맞다.
+ */
+async function releaseSuccessor(successorId: string | null, selfId?: string) {
+  if (!successorId) return;
+  await db.contact.updateMany({
+    where: { successorId, ...(selfId ? { NOT: { id: selfId } } : {}) },
+    data: { successorId: null },
+  });
+}
+
+/** 재직 중이 아닌 사람은 대표 담당자로 두지 않는다. */
+function normalizeContactData(data: ReturnType<typeof contactData>) {
+  if (data.status !== "재직") return { ...data, isPrimary: false };
+  return data;
+}
+
 export async function createContact(fd: FormData) {
-  const data = contactData(fd);
+  const data = normalizeContactData(contactData(fd));
   if (!data.name) throw new Error("담당자 이름은 필수입니다.");
   if (!data.organizationId) throw new Error("고객사를 선택해 주세요.");
+
+  await releaseSuccessor(data.successorId);
 
   const contact = await db.contact.create({ data });
   if (data.isPrimary) await demoteOtherPrimaries(data.organizationId, contact.id);
@@ -115,8 +240,13 @@ export async function createContact(fd: FormData) {
 }
 
 export async function updateContact(id: string, fd: FormData) {
-  const data = contactData(fd);
+  const data = normalizeContactData(contactData(fd));
   if (!data.name) throw new Error("담당자 이름은 필수입니다.");
+  if (data.successorId === id) {
+    throw new Error("자기 자신을 후임으로 지정할 수 없습니다.");
+  }
+
+  await releaseSuccessor(data.successorId, id);
 
   await db.contact.update({ where: { id }, data });
   if (data.isPrimary) await demoteOtherPrimaries(data.organizationId, id);
@@ -124,6 +254,77 @@ export async function updateContact(id: string, fd: FormData) {
   revalidatePath(`/organizations/${data.organizationId}`);
   revalidatePath("/contacts");
   redirect(`/organizations/${data.organizationId}`);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  명함 이력                                                                   */
+/* -------------------------------------------------------------------------- */
+
+function businessCardData(fd: FormData) {
+  return {
+    contactId: str(fd, "contactId"),
+    receivedAt: reqDate(fd, "receivedAt"),
+    companyName: optStr(fd, "companyName"),
+    department: optStr(fd, "department"),
+    position: optStr(fd, "position"),
+    email: optStr(fd, "email"),
+    phone: optStr(fd, "phone"),
+    mobile: optStr(fd, "mobile"),
+    address: optStr(fd, "address"),
+    receivedChannel: optStr(fd, "receivedChannel"),
+    receivedPlace: optStr(fd, "receivedPlace"),
+    imageUrl: optStr(fd, "imageUrl"),
+    memo: optStr(fd, "memo"),
+  };
+}
+
+/**
+ * 명함을 등록하면서, 명함에 적힌 소속·직함이 현재 담당자 정보보다 최신이면
+ * 담당자 레코드도 함께 갱신한다. 같은 내용을 두 번 입력하지 않게 하기 위해서다.
+ */
+export async function createBusinessCard(fd: FormData) {
+  const data = businessCardData(fd);
+  if (!data.contactId) throw new Error("담당자를 선택해 주세요.");
+
+  const contact = await db.contact.findUnique({
+    where: { id: data.contactId },
+    include: { businessCards: { orderBy: { receivedAt: "desc" }, take: 1 } },
+  });
+  if (!contact) throw new Error("담당자를 찾을 수 없습니다.");
+
+  await db.businessCard.create({ data });
+
+  const latest = contact.businessCards[0];
+  const isNewest = !latest || data.receivedAt >= latest.receivedAt;
+
+  if (isNewest) {
+    await db.contact.update({
+      where: { id: data.contactId },
+      data: {
+        department: data.department ?? contact.department,
+        position: data.position ?? contact.position,
+        email: data.email ?? contact.email,
+        phone: data.phone ?? contact.phone,
+        mobile: data.mobile ?? contact.mobile,
+      },
+    });
+  }
+
+  revalidatePath(`/contacts/${data.contactId}`);
+  revalidatePath(`/organizations/${contact.organizationId}`);
+  redirect(`/contacts/${data.contactId}`);
+}
+
+export async function updateBusinessCard(id: string, fd: FormData) {
+  const data = businessCardData(fd);
+  await db.businessCard.update({ where: { id }, data });
+  revalidatePath(`/contacts/${data.contactId}`);
+  redirect(`/contacts/${data.contactId}`);
+}
+
+export async function deleteBusinessCard(id: string) {
+  const card = await db.businessCard.delete({ where: { id } });
+  revalidatePath(`/contacts/${card.contactId}`);
 }
 
 export async function deleteContact(id: string) {

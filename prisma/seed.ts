@@ -29,7 +29,11 @@ async function main() {
   await db.activity.deleteMany();
   await db.deal.deleteMany();
   await db.training.deleteMany();
+  await db.businessCard.deleteMany();
+  // 후임 연결을 먼저 끊어야 담당자를 지울 수 있다.
+  await db.contact.updateMany({ data: { successorId: null } });
   await db.contact.deleteMany();
+  await db.accountProfile.deleteMany();
   await db.course.deleteMany();
   await db.organization.deleteMany();
 
@@ -134,6 +138,44 @@ async function main() {
       address: "경기도 수원시 영통구 삼성로 129",
       ownerName: "김영업",
       memo: "매년 3월 연간 교육계획 확정. 인재개발원 자체 강사진 보유로 외부 위탁은 리더십·DX 위주.",
+
+      acquisitionChannel: "전시회·박람회",
+      firstContactAt: month(-22, 9),
+
+      // S 등급 — 정기 발주처이자 대표 레퍼런스
+      scorePurchase: 5,
+      scoreRecurring: 5,
+      scoreRetrain: 5,
+      scoreSolution: 4,
+      scoreTrust: 5,
+      gradeMemo: "상반기 AI 과정 만족도 4.8. 차수 확대 요청이 먼저 들어옴. 교육 체계 컨설팅 제안 검토 중.",
+      gradedAt: day(-10),
+
+      profile: {
+        create: {
+          workforceType: "혼합",
+          fieldRatio: 45,
+          hrStructure: "인재개발원 별도 운영",
+          hrHeadcount: 12,
+          decisionProcess: "실무자 검토 → 인재개발원장 전결 (5천만원 초과 시 CHO 보고)",
+          fiscalStartMonth: 1,
+          budgetMonth: 11,
+          budgetCycle: "연간",
+          budgetScale: 1_800_000_000,
+          budgetNote: "11월 초안, 12월 확정. 이월 예산은 2월까지 집행 가능.",
+          hiringMonths: "3,9",
+          hiringNote: "3월 공채 200명, 9월 경력 수시",
+          trainingMonths: "3,4,10,11",
+          trainingNote: "3~4월 신입 입문, 10~11월 승진자 과정",
+          regularPrograms: "신입 입문(3월), 신임팀장(상·하반기), 법정의무교육(연 1회), 승진자 과정(11월)",
+          cultureActivities: "분기 타운홀, 연 1회 조직문화 진단 서베이",
+          competitors: "H사(리더십), 자체 사내강사",
+          expansionLevel: "높음",
+          expansionDepartments: "생산기술본부, 구매본부",
+          notes: "인재개발원장이 DX 교육에 관심 높음. 계열사 확산 가능성 언급됨.",
+        },
+      },
+
       contacts: {
         create: [
           {
@@ -145,6 +187,10 @@ async function main() {
             mobile: "010-2345-6789",
             isPrimary: true,
             memo: "오전 연락 선호. 예산 집행 권한 있음.",
+            firstMetAt: month(-22, 9),
+            firstMetChannel: "전시회·박람회",
+            firstMetPlace: "2024 HRD 코리아 (코엑스)",
+            assignedFrom: month(-22, 9),
           },
           {
             name: "이수민",
@@ -153,6 +199,10 @@ async function main() {
             email: "sm.lee@example.com",
             mobile: "010-3456-7890",
             memo: "실무 협의 창구",
+            firstMetAt: month(-9, 12),
+            firstMetChannel: "지인 소개",
+            firstMetPlace: "한빛전자 인재개발원 방문",
+            assignedFrom: month(-9, 12),
           },
         ],
       },
@@ -171,6 +221,41 @@ async function main() {
       address: "서울특별시 서초구 남부순환로 2411",
       ownerName: "정컨설",
       memo: "연간 단가계약 방식. 나라장터 입찰 건은 별도 관리.",
+
+      acquisitionChannel: "입찰 설명회",
+      firstContactAt: month(-14, 3),
+
+      scorePurchase: 4,
+      scoreRecurring: 4,
+      scoreRetrain: 4,
+      scoreSolution: 2,
+      scoreTrust: 4,
+      gradeMemo: "공공 특성상 솔루션 제안보다는 과정 납품 성격. 다만 반복성은 안정적.",
+      gradedAt: day(-30),
+
+      profile: {
+        create: {
+          workforceType: "내근직 중심",
+          hrStructure: "인재개발원 (교육기획팀 / 운영팀)",
+          hrHeadcount: 8,
+          decisionProcess: "교육기획팀 검토 → 원장 결재. 2천만원 초과 시 공개입찰.",
+          fiscalStartMonth: 1,
+          budgetMonth: 9,
+          budgetCycle: "연간",
+          budgetScale: 900_000_000,
+          budgetNote: "9월 예산 요구서 제출, 12월 시의회 확정. 상반기 집행률 관리 엄격.",
+          hiringMonths: "4,10",
+          trainingMonths: "3,5,9,11",
+          trainingNote: "신규 임용자 교육(4월), 직급별 승진 교육(9~11월)",
+          regularPrograms: "신규 임용자 과정, 5급 승진 리더십, 청렴교육(법정)",
+          cultureActivities: "적극행정 워크숍",
+          competitors: "지방행정연수원 위탁, K사",
+          expansionLevel: "보통",
+          expansionDepartments: "자치구 인재개발 담당 부서",
+          notes: "나라장터 공고를 상시 모니터링해야 함. 수의계약 한도 2천만원.",
+        },
+      },
+
       contacts: {
         create: [
           {
@@ -180,6 +265,10 @@ async function main() {
             email: "ms.choi@example.go.kr",
             phone: "02-3488-2011",
             isPrimary: true,
+            firstMetAt: month(-14, 3),
+            firstMetChannel: "입찰 설명회",
+            firstMetPlace: "2025년 교육 위탁 사업 설명회",
+            assignedFrom: month(-14, 3),
           },
         ],
       },
@@ -200,6 +289,41 @@ async function main() {
       address: "서울특별시 영등포구 여의대로 108",
       ownerName: "김영업",
       memo: "CS 교육 정기 발주. 지점별 순회 교육 형태.",
+
+      acquisitionChannel: "기존 고객 소개",
+      firstContactAt: month(-16, 5),
+      referredBy: "한빛전자 박지훈 팀장",
+
+      scorePurchase: 4,
+      scoreRecurring: 4,
+      scoreRetrain: 3,
+      scoreSolution: 4,
+      scoreTrust: 4,
+      gradedAt: day(-45),
+
+      profile: {
+        create: {
+          workforceType: "혼합",
+          fieldRatio: 60,
+          hrStructure: "HR본부 산하 교육팀",
+          hrHeadcount: 6,
+          decisionProcess: "교육팀장 검토 → HR본부장 결재",
+          fiscalStartMonth: 1,
+          budgetMonth: 10,
+          budgetCycle: "반기",
+          budgetScale: 1_200_000_000,
+          hiringMonths: "3",
+          hiringNote: "설계사 리크루팅은 상시",
+          trainingMonths: "2,3,8,9",
+          trainingNote: "2~3월 지점 CS 순회, 8~9월 관리자 과정",
+          regularPrograms: "지점 CS 순회교육(연 2회), 산업안전보건(분기), 신입 FC 입문",
+          competitors: "F사(CS 전문)",
+          expansionLevel: "높음",
+          expansionDepartments: "디지털혁신본부, 상품개발팀",
+          notes: "현장 설계사 비중이 높아 온라인·모바일 과정 수요 큼.",
+        },
+      },
+
       contacts: {
         create: [
           {
@@ -209,6 +333,11 @@ async function main() {
             email: "sy.han@example.com",
             mobile: "010-4567-8901",
             isPrimary: true,
+            firstMetAt: month(-16, 5),
+            firstMetChannel: "기존 고객 소개",
+            firstMetPlace: "여의도 본사 미팅",
+            referredBy: "한빛전자 박지훈 팀장",
+            assignedFrom: month(-16, 5),
           },
         ],
       },
@@ -225,6 +354,31 @@ async function main() {
       status: "잠재고객",
       ownerName: "정컨설",
       memo: "AI 교육 문의로 첫 접촉. 예산 규모 확인 필요.",
+
+      acquisitionChannel: "인바운드 문의",
+      firstContactAt: day(-6),
+
+      scorePurchase: 1,
+      scoreRecurring: 3,
+      scoreRetrain: 3,
+      scoreSolution: 3,
+      scoreTrust: 2,
+      gradeMemo: "아직 거래 전. 파일럿 반응에 따라 재평가 필요.",
+      gradedAt: day(-5),
+
+      profile: {
+        create: {
+          workforceType: "내근직 중심",
+          hrStructure: "경영지원팀에서 겸임 (교육 전담 없음)",
+          hrHeadcount: 1,
+          decisionProcess: "과장 검토 → 대표 결재",
+          budgetMonth: 12,
+          budgetCycle: "수시",
+          hiringNote: "공채 없이 수시 채용",
+          notes: "예산이 별도로 편성돼 있지 않고 건별 승인. 대표 관심도가 관건.",
+        },
+      },
+
       contacts: {
         create: [
           {
@@ -250,6 +404,29 @@ async function main() {
       address: "서울특별시 성북구 화랑로 815",
       ownerName: "정컨설",
       memo: "교직원 대상 법정의무교육 위탁 검토 중.",
+
+      acquisitionChannel: "온라인 검색",
+      firstContactAt: day(-9),
+
+      scorePurchase: 1,
+      scoreRecurring: 4,
+      scoreTrust: 3,
+      gradeMemo: "법정의무교육은 매년 반복되므로 한 번 뚫으면 반복성이 높다. 구매력·솔루션 여지는 아직 미파악.",
+      gradedAt: day(-8),
+
+      profile: {
+        create: {
+          workforceType: "내근직 중심",
+          hrStructure: "총무처 인사팀",
+          budgetMonth: 10,
+          budgetCycle: "연간",
+          trainingMonths: "2,8",
+          trainingNote: "학기 시작 전(2월·8월)에 교직원 교육 집중",
+          regularPrograms: "성희롱 예방, 개인정보보호, 청렴교육 (모두 법정의무)",
+          notes: "경쟁 3사 검토 중. 온라인 콘텐츠 단가가 관건.",
+        },
+      },
+
       contacts: {
         create: [
           {
@@ -274,7 +451,32 @@ async function main() {
       employeeCount: 1_450,
       status: "휴면",
       ownerName: "김영업",
-      memo: "2023년 CS 교육 진행 후 담당자 교체로 소통 단절. 재접촉 필요.",
+      memo: "CS 교육 진행 후 담당자 교체로 소통 단절. 재접촉 필요.",
+
+      acquisitionChannel: "콜드콜",
+      firstContactAt: month(-24, 2),
+
+      scorePurchase: 2,
+      scoreRecurring: 2,
+      scoreRetrain: 3,
+      scoreSolution: 2,
+      scoreTrust: 3,
+      gradeMemo: "1회성 거래 후 관계 끊김. 신규 담당자와 관계를 처음부터 다시 쌓아야 함.",
+      gradedAt: day(-60),
+
+      profile: {
+        create: {
+          workforceType: "현장직 중심",
+          fieldRatio: 85,
+          hrStructure: "인사팀 내 교육 담당 1명",
+          hrHeadcount: 1,
+          hiringMonths: "2,8",
+          hiringNote: "간호사 신규 채용 연 2회",
+          trainingMonths: "3,9",
+          notes: "3교대 근무라 집합교육 편성이 어려움. 온라인·짧은 모듈 선호.",
+        },
+      },
+
       contacts: {
         create: [
           {
@@ -282,12 +484,119 @@ async function main() {
             department: "인사팀",
             position: "대리",
             email: "tw.kang@example.org",
+            mobile: "010-7788-1234",
             isPrimary: true,
+            firstMetAt: day(-120),
+            firstMetChannel: "인바운드 문의",
+            firstMetPlace: "전화 인수인계 안내",
+            assignedFrom: day(-120),
+            memo: "전임자에게 인수인계 거의 못 받은 상태. 과거 진행 이력부터 다시 설명 필요.",
           },
         ],
       },
     },
   });
+
+  // 미래병원 — 담당자 교체 시나리오.
+  // 전임자를 퇴사 처리하고 후임을 연결하면 고객사 화면에 변경 이력이 자동으로 만들어진다.
+  const kang = await db.contact.findFirst({
+    where: { organizationId: miraeHospital.id, name: "강태우" },
+  });
+
+  await db.contact.create({
+    data: {
+      organizationId: miraeHospital.id,
+      name: "노현주",
+      department: "인사팀",
+      position: "과장",
+      email: "hj.noh@example.org",
+      mobile: "010-9911-2233",
+      isPrimary: false,
+      status: "퇴사",
+      changeReason: "퇴사",
+      assignedFrom: month(-24, 2),
+      assignedUntil: day(-130),
+      handoverNote:
+        "퇴사 통보가 급하게 이뤄져 후임에게 교육 이력이 제대로 전달되지 않음. 2년 전 CS 교육 만족도 4.0, 재실시 의향 있었음.",
+      successorId: kang?.id ?? null,
+      firstMetAt: month(-24, 2),
+      firstMetChannel: "콜드콜",
+      firstMetPlace: "전화 첫 접촉",
+      memo: "당시 교육 도입에 적극적이었음.",
+    },
+  });
+
+  console.log("명함 이력 생성 중…");
+
+  const parkJihoon = await db.contact.findFirst({
+    where: { organizationId: hanbit.id, name: "박지훈" },
+  });
+  const hanSoyoung = await db.contact.findFirst({
+    where: { organizationId: daehan.id, name: "한소영" },
+  });
+
+  if (parkJihoon) {
+    // 승진 이력이 명함으로 남는다: 과장 → 차장 → 팀장
+    await db.businessCard.createMany({
+      data: [
+        {
+          contactId: parkJihoon.id,
+          receivedAt: month(-22, 9),
+          companyName: "한빛전자 주식회사",
+          department: "인재개발원 교육기획팀",
+          position: "과장",
+          email: "jh.park@example.com",
+          mobile: "010-2345-6789",
+          receivedChannel: "전시회·박람회",
+          receivedPlace: "2024 HRD 코리아 (코엑스)",
+          memo: "부스 방문. AI 교육에 관심 보임.",
+        },
+        {
+          contactId: parkJihoon.id,
+          receivedAt: month(-12, 4),
+          companyName: "한빛전자 주식회사",
+          department: "인재개발원 교육기획팀",
+          position: "차장",
+          email: "jh.park@example.com",
+          phone: "02-3400-1234",
+          mobile: "010-2345-6789",
+          receivedChannel: "세미나·컨퍼런스",
+          receivedPlace: "자사 주최 리더십 세미나",
+          memo: "승진 소식 확인. 예산 권한 확대됨.",
+        },
+        {
+          contactId: parkJihoon.id,
+          receivedAt: month(-2, 18),
+          companyName: "한빛전자 주식회사",
+          department: "인재개발원",
+          position: "팀장",
+          email: "jh.park@example.com",
+          phone: "02-3400-1234",
+          mobile: "010-2345-6789",
+          address: "경기도 수원시 영통구 삼성로 129",
+          receivedChannel: "지인 소개",
+          receivedPlace: "신임팀장 과정 현장",
+          memo: "팀장 승진. 하반기 교육 확대 의사 표명.",
+        },
+      ],
+    });
+  }
+
+  if (hanSoyoung) {
+    await db.businessCard.create({
+      data: {
+        contactId: hanSoyoung.id,
+        receivedAt: month(-16, 5),
+        companyName: "대한생명보험",
+        department: "HR본부 교육팀",
+        position: "차장",
+        email: "sy.han@example.com",
+        mobile: "010-4567-8901",
+        receivedChannel: "기존 고객 소개",
+        receivedPlace: "여의도 본사 첫 미팅",
+      },
+    });
+  }
 
   console.log("교육 진행 이력 생성 중…");
 
@@ -439,7 +748,7 @@ async function main() {
       organizationId: miraeHospital.id,
       courseId: byCode["CS-001"].id,
       title: "의료진 고객응대 교육",
-      startDate: month(-11, 14),
+      startDate: month(-20, 14),
       headcount: 80,
       pricePerHead: 200_000,
       totalAmount: 16_000_000,
@@ -619,7 +928,7 @@ async function main() {
       {
         organizationId: miraeHospital.id,
         type: "전화",
-        occurredAt: day(-40),
+        occurredAt: day(-120),
         summary: "담당자 교체 확인",
         content: "기존 담당자 퇴사. 신규 담당자에게 인사 및 과거 진행 이력 안내.",
         nextAction: "하반기 재접촉",
@@ -631,7 +940,9 @@ async function main() {
 
   const counts = {
     고객사: await db.organization.count(),
+    "기업 프로파일": await db.accountProfile.count(),
     담당자: await db.contact.count(),
+    "명함 이력": await db.businessCard.count(),
     교육과정: await db.course.count(),
     교육진행: await db.training.count(),
     영업기회: await db.deal.count(),

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { ORG_STATUS_TONE, ORG_STATUSES, ORG_TYPES } from "@/lib/constants";
+import { GRADE_TONE, GRADES, calculateGrade } from "@/lib/grade";
 import { formatKRWShort } from "@/lib/format";
 import {
   Badge,
@@ -14,14 +15,19 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type Search = { q?: string; status?: string; type?: string };
+type Search = { q?: string; status?: string; type?: string; grade?: string };
 
 export default async function OrganizationsPage({
   searchParams,
 }: {
   searchParams: Promise<Search>;
 }) {
-  const { q = "", status = "", type = "" } = await searchParams;
+  const {
+    q = "",
+    status = "",
+    type = "",
+    grade: gradeFilter = "",
+  } = await searchParams;
 
   // SQLite 의 Prisma 커넥터는 mode:"insensitive" 를 지원하지 않는다.
   // 한글에는 대소문자가 없으므로 contains 만으로 충분하고,
@@ -54,12 +60,15 @@ export default async function OrganizationsPage({
     },
   });
 
-  const rows = organizations.map((o) => ({
-    ...o,
-    revenue: o.trainings.reduce((sum, t) => sum + t.totalAmount, 0),
-  }));
+  const rows = organizations
+    .map((o) => ({
+      ...o,
+      revenue: o.trainings.reduce((sum, t) => sum + t.totalAmount, 0),
+      grade: calculateGrade(o, o.gradeOverride).grade,
+    }))
+    .filter((o) => (gradeFilter ? o.grade === gradeFilter : true));
 
-  const hasFilter = Boolean(q || status || type);
+  const hasFilter = Boolean(q || status || type || gradeFilter);
 
   return (
     <>
@@ -96,6 +105,14 @@ export default async function OrganizationsPage({
             </option>
           ))}
         </select>
+        <select name="grade" defaultValue={gradeFilter} className="select max-w-32">
+          <option value="">전체 등급</option>
+          {GRADES.map((g) => (
+            <option key={g} value={g}>
+              {g}등급
+            </option>
+          ))}
+        </select>
         <button type="submit" className="btn btn-secondary">
           검색
         </button>
@@ -121,6 +138,7 @@ export default async function OrganizationsPage({
           <TableWrap>
             <thead>
               <tr>
+                <Th align="center">등급</Th>
                 <Th>기관명</Th>
                 <Th>유형</Th>
                 <Th>업종</Th>
@@ -135,6 +153,13 @@ export default async function OrganizationsPage({
             <tbody>
               {rows.map((o) => (
                 <tr key={o.id} className="hover:bg-surface-2">
+                  <Td align="center">
+                    {o.grade ? (
+                      <Badge tone={GRADE_TONE[o.grade]}>{o.grade}</Badge>
+                    ) : (
+                      <span className="text-xs text-faint">미평가</span>
+                    )}
+                  </Td>
                   <Td>
                     <Link
                       href={`/organizations/${o.id}`}

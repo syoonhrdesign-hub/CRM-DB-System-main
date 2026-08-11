@@ -2,12 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ACTIVITY_TYPE_TONE,
+  CONTACT_STATUS_TONE,
   DEAL_STAGE_TONE,
   ORG_STATUS_TONE,
   TRAINING_STATUS_TONE,
 } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { formatBizRegNo, formatDate, formatKRW, formatKRWShort } from "@/lib/format";
+import { GRADE_TONE, calculateGrade } from "@/lib/grade";
+import { LIFECYCLE_TONE, calculateLifecycle } from "@/lib/lifecycle";
+import { GradeCard, LifecycleCard, ProfileCard } from "@/components/org-intel";
 import {
   Badge,
   Card,
@@ -31,7 +35,14 @@ export default async function OrganizationDetailPage({
   const org = await db.organization.findUnique({
     where: { id },
     include: {
-      contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] },
+      profile: true,
+      contacts: {
+        orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+        include: {
+          successor: { select: { id: true, name: true } },
+          _count: { select: { businessCards: true } },
+        },
+      },
       trainings: {
         orderBy: { startDate: "desc" },
         include: { course: { select: { name: true, category: true } } },
@@ -62,6 +73,23 @@ export default async function OrganizationDetailPage({
   );
   const pipelineValue = openDeals.reduce((s, d) => s + d.expectedAmount, 0);
 
+  const grade = calculateGrade(org, org.gradeOverride);
+  const lifecycle = calculateLifecycle(
+    completed.map((t) => ({
+      startDate: t.startDate,
+      courseCategory: t.course?.category ?? null,
+    })),
+  );
+
+  // 현재 창구와 지나간 담당자를 나눈다. 지나간 쪽이 곧 담당자 변경 이력이다.
+  const activeContacts = org.contacts.filter((c) => c.status === "재직");
+  const formerContacts = org.contacts
+    .filter((c) => c.status !== "재직")
+    .sort(
+      (a, b) =>
+        (b.assignedUntil?.getTime() ?? 0) - (a.assignedUntil?.getTime() ?? 0),
+    );
+
   return (
     <>
       {/* 헤더 */}
@@ -74,13 +102,25 @@ export default async function OrganizationDetailPage({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">{org.name}</h1>
-              <Badge tone={ORG_STATUS_TONE[org.status] ?? "gray"}>
-                {org.status}
-              </Badge>
+              {grade.grade && (
+                <Badge tone={GRADE_TONE[grade.grade]}>{grade.grade}등급</Badge>
+              )}
+              <Badge tone={LIFECYCLE_TONE[lifecycle.stage]}>{lifecycle.stage}</Badge>
+              {/* 생애주기와 거래상태가 같은 말이면(휴면 등) 한 번만 보여 준다 */}
+              {org.status !== lifecycle.stage && (
+                <Badge tone={ORG_STATUS_TONE[org.status] ?? "gray"}>
+                  {org.status}
+                </Badge>
+              )}
               <Badge>{org.orgType}</Badge>
             </div>
             <p className="mt-1 text-sm text-muted">
-              {[org.industry, org.sizeTier, org.ownerName && `담당 ${org.ownerName}`]
+              {[
+                org.industry,
+                org.sizeTier,
+                org.ownerName && `담당 ${org.ownerName}`,
+                org.acquisitionChannel && `유입 ${org.acquisitionChannel}`,
+              ]
                 .filter(Boolean)
                 .join(" · ") || "추가 정보 없음"}
             </p>
@@ -119,12 +159,41 @@ export default async function OrganizationDetailPage({
         />
       </div>
 
+      {/* 등급 · 생애주기 — 이 고객사를 어떻게 다뤄야 하는지 먼저 보여 준다 */}
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <GradeCard
+          organizationId={org.id}
+          result={grade}
+          scores={{
+            scorePurchase: org.scorePurchase,
+            scoreRecurring: org.scoreRecurring,
+            scoreRetrain: org.scoreRetrain,
+            scoreSolution: org.scoreSolution,
+            scoreTrust: org.scoreTrust,
+          }}
+          cycleOverride={org.contactCycleWeeks}
+          gradeMemo={org.gradeMemo}
+        />
+        <LifecycleCard
+          stage={lifecycle.stage}
+          monthsSinceLast={lifecycle.monthsSinceLast}
+          dealCount={lifecycle.dealCount}
+        />
+      </div>
+
+      <div className="mb-6">
+        <ProfileCard organizationId={org.id} profile={org.profile} />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* 왼쪽: 기본 정보 + 담당자 */}
         <div className="grid gap-6 lg:col-span-1">
           <Card title="기본 정보">
             <DefList>
               <DefItem label="사업자등록번호">{formatBizRegNo(org.bizRegNo)}</DefItem>
+              <DefItem label="최초 접촉">{formatDate(org.firstContactAt)}</DefItem>
+              <DefItem label="유입 경로">{org.acquisitionChannel ?? "-"}</DefItem>
+              <DefItem label="소개해 준 곳">{org.referredBy ?? "-"}</DefItem>
               <DefItem label="임직원 수">
                 {org.employeeCount ? `${org.employeeCount.toLocaleString("ko-KR")}명` : "-"}
               </DefItem>
@@ -155,7 +224,7 @@ export default async function OrganizationDetailPage({
           </Card>
 
           <Card
-            title={`담당자 (${org.contacts.length})`}
+            title={`담당자 (${activeContacts.length})`}
             action={
               <Link
                 href={`/contacts/new?orgId=${org.id}`}
@@ -166,24 +235,29 @@ export default async function OrganizationDetailPage({
             }
             padded={false}
           >
-            {org.contacts.length === 0 ? (
+            {activeContacts.length === 0 ? (
               <EmptyState
-                message="등록된 담당자가 없습니다."
+                message="현재 재직 중인 담당자가 없습니다."
                 actionLabel="담당자 추가"
                 actionHref={`/contacts/new?orgId=${org.id}`}
               />
             ) : (
               <ul className="divide-y divide-[var(--border)]">
-                {org.contacts.map((c) => (
+                {activeContacts.map((c) => (
                   <li key={c.id} className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/contacts/${c.id}/edit`}
+                        href={`/contacts/${c.id}`}
                         className="font-semibold hover:underline"
                       >
                         {c.name}
                       </Link>
                       {c.isPrimary && <Badge tone="blue">대표</Badge>}
+                      {c._count.businessCards > 0 && (
+                        <span className="tnum ml-auto text-xs text-faint">
+                          명함 {c._count.businessCards}장
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-muted">
                       {[c.department, c.position].filter(Boolean).join(" · ") || "-"}
@@ -191,11 +265,69 @@ export default async function OrganizationDetailPage({
                     <p className="mt-0.5 text-sm text-faint">
                       {[c.mobile, c.phone, c.email].filter(Boolean).join(" · ") || "연락처 없음"}
                     </p>
+                    {c.firstMetPlace && (
+                      <p className="mt-0.5 text-xs text-faint">
+                        처음 만남: {c.firstMetPlace}
+                        {c.firstMetAt && ` (${formatDate(c.firstMetAt)})`}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
           </Card>
+
+          {formerContacts.length > 0 && (
+            <Card
+              title={`담당자 변경 이력 (${formerContacts.length})`}
+              padded={false}
+            >
+              <ul className="divide-y divide-[var(--border)]">
+                {formerContacts.map((c) => (
+                  <li key={c.id} className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/contacts/${c.id}`}
+                        className="font-semibold hover:underline"
+                      >
+                        {c.name}
+                      </Link>
+                      <Badge tone={CONTACT_STATUS_TONE[c.status] ?? "gray"}>
+                        {c.status}
+                      </Badge>
+                    </div>
+
+                    <p className="text-sm text-muted">
+                      {[c.department, c.position].filter(Boolean).join(" · ") || "-"}
+                    </p>
+
+                    <p className="tnum mt-0.5 text-xs text-faint">
+                      담당 {formatDate(c.assignedFrom)} ~ {formatDate(c.assignedUntil)}
+                      {c.changeReason && ` · ${c.changeReason}`}
+                    </p>
+
+                    {c.successor && (
+                      <p className="mt-1 text-sm">
+                        <span className="text-faint">인계 → </span>
+                        <Link
+                          href={`/contacts/${c.successor.id}`}
+                          className="font-medium text-accent hover:underline"
+                        >
+                          {c.successor.name}
+                        </Link>
+                      </p>
+                    )}
+
+                    {c.handoverNote && (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-muted">
+                        {c.handoverNote}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </div>
 
         {/* 오른쪽: 교육 이력 / 영업건 / 활동 */}
