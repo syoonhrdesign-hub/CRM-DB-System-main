@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { ORG_STATUS_TONE, ORG_STATUSES, ORG_TYPES } from "@/lib/constants";
-import { GRADE_TONE, GRADES, calculateGrade } from "@/lib/grade";
+import { GRADES, calculateGrade } from "@/lib/grade";
+import { GradeChip } from "@/components/grade-chip";
 import { formatKRWShort } from "@/lib/format";
 import {
   Badge,
@@ -154,11 +155,7 @@ export default async function OrganizationsPage({
               {rows.map((o) => (
                 <tr key={o.id} className="hover:bg-surface-2">
                   <Td align="center">
-                    {o.grade ? (
-                      <Badge tone={GRADE_TONE[o.grade]}>{o.grade}</Badge>
-                    ) : (
-                      <span className="text-xs text-faint">미평가</span>
-                    )}
+                    <GradeChip grade={o.grade} />
                   </Td>
                   <Td>
                     <Link

@@ -2,36 +2,66 @@
 
 /* ------------------------------------------------------------------------- */
 /*  디자인 토큰                                                                */
+/*                                                                            */
+/*  하루 종일 표를 들여다보는 업무 도구다. 화면이 스스로 주목받으면 안 되고,      */
+/*  숫자와 글자가 먼저 읽혀야 한다. 그래서                                      */
+/*   - 회색에 아주 옅은 쿨톤을 넣어 순회색의 탁함을 걷어내고                     */
+/*   - 강조색은 한 가지만, 채도를 낮춰 오래 봐도 피로하지 않게 하고              */
+/*   - 테두리는 실선 한 겹, 그림자는 최소한으로 써서 층을 만든다.                */
+/*                                                                            */
 /*  라이트가 기본. 다크는 시스템 설정(prefers-color-scheme)을 따른다.            */
 /* ------------------------------------------------------------------------- */
 
 :root {
-  --bg: #f6f7f9;
+  --bg: #f7f8fa;
   --surface: #ffffff;
-  --surface-2: #f9fafb;
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
-  --text: #111827;
-  --text-muted: #6b7280;
-  --text-faint: #9ca3af;
-  --accent: #2563eb;
-  --accent-soft: #eff6ff;
-  --danger: #dc2626;
+  --surface-2: #f4f6f8;
+  --border: #e6e9ef;
+  --border-strong: #d3d8e0;
+
+  /* 순검정 대신 살짝 푸른 먹색 — 흰 배경에서 더 또렷하게 읽힌다 */
+  --text: #101828;
+  --text-muted: #5d6b82;
+  --text-faint: #94a0b3;
+
+  /* 기본 파랑에서 벗어난 인디고. 신뢰감을 주면서 흔하지 않다 */
+  --accent: #3d4ee0;
+  --accent-hover: #3341c8;
+  --accent-soft: #eef1fe;
+
+  --danger: #d13438;
+  --success: #0f7b52;
+
+  --radius: 0.625rem;
+  --radius-sm: 0.4375rem;
+
+  /* 카드가 배경에서 살짝 떠 보일 정도로만 */
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-md: 0 4px 12px -2px rgb(16 24 40 / 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface-2: #1c2129;
-    --border: #2b313b;
-    --border-strong: #3a424e;
-    --text: #e6edf3;
-    --text-muted: #9198a1;
-    --text-faint: #6e7681;
-    --accent: #4f8cf7;
-    --accent-soft: #172033;
-    --danger: #f36d6d;
+    --bg: #0b0d12;
+    --surface: #13161d;
+    --surface-2: #191d26;
+    --border: #252a35;
+    --border-strong: #333a48;
+
+    --text: #e8eaee;
+    --text-muted: #98a1b2;
+    --text-faint: #6b7486;
+
+    /* 어두운 배경에서는 같은 인디고가 탁해 보여 밝기를 올린다 */
+    --accent: #8093f7;
+    --accent-hover: #94a4f9;
+    --accent-soft: #1a1f36;
+
+    --danger: #f07a7d;
+    --success: #4ec08d;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -47,9 +77,12 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
+  --color-success: var(--success);
 
-  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --radius-card: var(--radius);
+
+  --font-sans: var(--font-pretendard), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
 }
 
 html,
@@ -61,11 +94,39 @@ body {
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* 한글은 자간이 살짝 좁아야 덩어리로 읽힌다 */
+  letter-spacing: -0.011em;
+}
+
+/* 제목은 조금 더 조여서 밀도를 준다 */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.021em;
 }
 
 /* 숫자를 세로로 정렬해서 표에서 자릿수가 흔들리지 않게 한다. */
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* 표·입력창의 숫자는 언제나 자릿수를 맞춘다 */
+table,
+input[type="number"],
+input[type="date"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 키보드로 이동할 때만 초점 테두리를 보여 준다 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -76,21 +137,45 @@ body {
 .select,
 .textarea {
   width: 100%;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
   padding: 0.5rem 0.7rem;
   font-size: 0.875rem;
-  line-height: 1.4;
+  line-height: 1.45;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-strong));
 }
 
 .input:focus,
 .select:focus,
 .textarea:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
   border-color: var(--accent);
+  /* 테두리 대신 옅은 링 — 입력창 크기가 흔들리지 않는다 */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.select {
+  /* 기본 화살표가 브라우저마다 달라 직접 그린다 */
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-faint) 50%),
+    linear-gradient(135deg, var(--text-faint) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 1.85rem;
 }
 
 .textarea {
@@ -115,32 +200,37 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-sm);
   padding: 0.5rem 0.9rem;
   font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.3;
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
 .btn-primary {
   background: var(--accent);
   color: #fff;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  filter: brightness(1.08);
+  background: var(--accent-hover);
 }
 
 .btn-secondary {
   background: var(--surface);
   color: var(--text);
   border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover {
   background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border-strong));
 }
 
 .btn-danger {
@@ -150,10 +240,19 @@ body {
 }
 
 .btn-danger:hover {
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
 }
 
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: var(--accent);
+}
+
+.btn-secondary:disabled:hover {
+  background: var(--surface);
 }

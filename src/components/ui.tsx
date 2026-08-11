@@ -7,13 +7,21 @@ import type { ReactNode } from "react";
 
 type Tone = "gray" | "blue" | "green" | "amber" | "red" | "violet";
 
+/*
+ * 알약(rounded-full) 대신 살짝 각진 모서리에 얇은 링을 둘렀다.
+ * 한 화면에 배지가 열 개씩 놓이는 도구라, 둥근 알약이 많으면 화면이 물러 보이고
+ * 경계가 흐릿해 어디까지가 배지인지 잘 안 읽힌다.
+ */
 const TONE_CLASS: Record<Tone, string> = {
-  gray: "bg-gray-100 text-gray-700 dark:bg-gray-500/15 dark:text-gray-300",
-  blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-  green: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  red: "bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  violet: "bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+  gray: "bg-gray-100 text-gray-700 ring-gray-600/12 dark:bg-gray-400/12 dark:text-gray-300 dark:ring-gray-300/20",
+  blue: "bg-blue-50 text-blue-700 ring-blue-600/15 dark:bg-blue-400/12 dark:text-blue-300 dark:ring-blue-300/22",
+  green:
+    "bg-emerald-50 text-emerald-700 ring-emerald-600/15 dark:bg-emerald-400/12 dark:text-emerald-300 dark:ring-emerald-300/22",
+  amber:
+    "bg-amber-50 text-amber-800 ring-amber-600/18 dark:bg-amber-400/12 dark:text-amber-300 dark:ring-amber-300/22",
+  red: "bg-rose-50 text-rose-700 ring-rose-600/15 dark:bg-rose-400/12 dark:text-rose-300 dark:ring-rose-300/22",
+  violet:
+    "bg-violet-50 text-violet-700 ring-violet-600/15 dark:bg-violet-400/12 dark:text-violet-300 dark:ring-violet-300/22",
 };
 
 export function Badge({
@@ -25,7 +33,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_CLASS[tone]}`}
+      className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${TONE_CLASS[tone]}`}
     >
       {children}
     </span>
@@ -48,9 +56,9 @@ export function Card({
   padded?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-line bg-surface overflow-hidden">
+    <section className="overflow-hidden rounded-card border border-line bg-surface shadow-[var(--shadow-sm)]">
       {(title || action) && (
-        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <h2 className="text-sm font-bold">{title}</h2>
           {action}
         </header>
@@ -142,7 +150,8 @@ export function Th({
 }) {
   return (
     <th
-      className={`whitespace-nowrap border-b border-line px-4 py-2.5 text-xs font-semibold text-muted ${ALIGN_CLASS[align]}`}
+      // 헤더 행에 옅은 바탕을 깔아 본문과 분리한다. 스크롤해도 열 이름이 남도록 고정한다.
+      className={`sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface-2 px-4 py-2 text-xs font-semibold text-muted ${ALIGN_CLASS[align]}`}
     >
       {children}
     </th>

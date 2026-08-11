@@ -6,7 +6,8 @@ import {
   findContactsDue,
   findSeasonHits,
 } from "@/lib/agenda";
-import { GRADE_TONE, calculateGrade } from "@/lib/grade";
+import { calculateGrade } from "@/lib/grade";
+import { GradeChip } from "@/components/grade-chip";
 import { LIFECYCLE_ACTION, LIFECYCLE_TONE, calculateLifecycle } from "@/lib/lifecycle";
 import { db } from "@/lib/db";
 import { daysUntil, formatDate } from "@/lib/format";
@@ -146,9 +147,7 @@ export default async function AgendaPage({
               {due.slice(0, 12).map((d) => (
                 <li key={d.id} className="px-4 py-2.5">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {d.grade && (
-                      <Badge tone={GRADE_TONE[d.grade]}>{d.grade}</Badge>
-                    )}
+                    <GradeChip grade={d.grade} />
                     <Link
                       href={`/organizations/${d.id}`}
                       className="text-sm font-medium hover:underline"
@@ -300,7 +299,7 @@ export default async function AgendaPage({
                 <li key={`${h.organizationId}-${h.kind}-${i}`} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Badge tone={SEASON_TONE[h.kind]}>{h.kind}</Badge>
-                    {h.grade && <Badge tone={GRADE_TONE[h.grade]}>{h.grade}</Badge>}
+                    <GradeChip grade={h.grade} />
                     <Link
                       href={`/organizations/${h.organizationId}`}
                       className="text-sm font-semibold hover:underline"
@@ -329,7 +328,7 @@ export default async function AgendaPage({
                     <Badge tone={LIFECYCLE_TONE[e.lifecycle.stage]}>
                       {e.lifecycle.stage}
                     </Badge>
-                    {e.grade && <Badge tone={GRADE_TONE[e.grade]}>{e.grade}</Badge>}
+                    <GradeChip grade={e.grade} />
                     <Link
                       href={`/organizations/${e.org.id}`}
                       className="text-sm font-semibold hover:underline"

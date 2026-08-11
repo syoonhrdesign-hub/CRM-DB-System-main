@@ -5,10 +5,10 @@ import { formatMonths, parseMonths } from "@/lib/agenda";
 import {
   GRADE_AXES,
   GRADE_DESCRIPTION,
-  GRADE_TONE,
   contactCycleWeeks,
   type GradeResult,
 } from "@/lib/grade";
+import { GradeChip } from "./grade-chip";
 import { LIFECYCLE_ACTION, LIFECYCLE_STAGES, LIFECYCLE_TONE } from "@/lib/lifecycle";
 import type { LifecycleStage } from "@/lib/lifecycle";
 import { formatKRWShort } from "@/lib/format";
@@ -60,21 +60,7 @@ export function GradeCard({
       ) : (
         <>
           <div className="flex items-center gap-3">
-            <span
-              className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl text-2xl font-bold ${
-                GRADE_TONE[result.grade] === "violet"
-                  ? "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
-                  : GRADE_TONE[result.grade] === "green"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                    : GRADE_TONE[result.grade] === "blue"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
-                      : GRADE_TONE[result.grade] === "amber"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
-                        : "bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300"
-              }`}
-            >
-              {result.grade}
-            </span>
+            <GradeChip grade={result.grade} size="lg" />
             <div className="min-w-0">
               <p className="text-sm">{GRADE_DESCRIPTION[result.grade]}</p>
               <p className="tnum mt-0.5 text-xs text-faint">

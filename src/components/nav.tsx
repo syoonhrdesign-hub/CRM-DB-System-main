@@ -31,10 +31,10 @@ export function Nav({
   const [menu, setMenu] = useState(false);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-bold">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent text-sm text-white">
+          <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-sm font-bold text-white">
             E
           </span>
           <span className="whitespace-nowrap">교육사업 CRM</span>
@@ -45,10 +45,10 @@ export function Nav({
             <Link
               key={l.href}
               href={l.href}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+              className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
                 isActive(pathname, l.href)
-                  ? "bg-accent-soft text-accent"
-                  : "text-muted hover:bg-surface-2 hover:text-ink"
+                  ? "bg-accent-soft font-semibold text-accent"
+                  : "font-medium text-muted hover:bg-surface-2 hover:text-ink"
               }`}
             >
               {l.label}
@@ -62,7 +62,7 @@ export function Nav({
             type="button"
             onClick={() => setMenu((v) => !v)}
             aria-expanded={menu}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-surface-2"
           >
             <span className="grid h-7 w-7 place-items-center rounded-full bg-accent-soft text-xs font-bold text-accent">
               {user.name.slice(0, 1)}
@@ -79,7 +79,7 @@ export function Nav({
                 className="fixed inset-0 z-10 cursor-default"
                 onClick={() => setMenu(false)}
               />
-              <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-line bg-surface p-1.5 shadow-lg">
+              <div className="absolute right-0 z-20 mt-1.5 w-56 rounded-card border border-line bg-surface p-1.5 shadow-[var(--shadow-md)]">
                 <div className="px-2.5 py-2">
                   <p className="text-sm font-semibold">{user.name}</p>
                   <p className="truncate text-xs text-faint">{user.email}</p>
@@ -93,7 +93,7 @@ export function Nav({
                 <Link
                   href="/account/password"
                   onClick={() => setMenu(false)}
-                  className="block rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink"
+                  className="block rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink"
                 >
                   비밀번호 변경
                 </Link>
@@ -102,7 +102,7 @@ export function Nav({
                   <Link
                     href="/users"
                     onClick={() => setMenu(false)}
-                    className="block rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink"
+                    className="block rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-surface-2 hover:text-ink"
                   >
                     사용자 관리
                   </Link>
@@ -113,7 +113,7 @@ export function Nav({
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="w-full rounded-lg px-2.5 py-1.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-ink"
+                    className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-ink"
                   >
                     로그아웃
                   </button>

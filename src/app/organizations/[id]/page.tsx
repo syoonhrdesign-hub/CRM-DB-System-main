@@ -9,7 +9,8 @@ import {
 } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { formatBizRegNo, formatDate, formatKRW, formatKRWShort } from "@/lib/format";
-import { GRADE_TONE, calculateGrade } from "@/lib/grade";
+import { calculateGrade } from "@/lib/grade";
+import { GradeChip } from "@/components/grade-chip";
 import { LIFECYCLE_TONE, calculateLifecycle } from "@/lib/lifecycle";
 import { GradeCard, LifecycleCard, ProfileCard } from "@/components/org-intel";
 import {
@@ -102,9 +103,7 @@ export default async function OrganizationDetailPage({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">{org.name}</h1>
-              {grade.grade && (
-                <Badge tone={GRADE_TONE[grade.grade]}>{grade.grade}등급</Badge>
-              )}
+              {grade.grade && <GradeChip grade={grade.grade} />}
               <Badge tone={LIFECYCLE_TONE[lifecycle.stage]}>{lifecycle.stage}</Badge>
               {/* 생애주기와 거래상태가 같은 말이면(휴면 등) 한 번만 보여 준다 */}
               {org.status !== lifecycle.stage && (
