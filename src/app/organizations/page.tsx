@@ -77,9 +77,17 @@ export default async function OrganizationsPage({
         title="고객사"
         description={`총 ${rows.length}개 기관${hasFilter ? " (필터 적용됨)" : ""}`}
         action={
-          <Link href="/organizations/new" className="btn btn-primary">
-            + 고객사 등록
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <a href="/api/organizations/export" className="btn btn-secondary">
+              엑셀 내보내기
+            </a>
+            <Link href="/organizations/import" className="btn btn-secondary">
+              엑셀 일괄 등록
+            </Link>
+            <Link href="/organizations/new" className="btn btn-primary">
+              + 고객사 등록
+            </Link>
+          </div>
         }
       />
 
@@ -148,7 +156,8 @@ export default async function OrganizationsPage({
                 <Th align="right">교육</Th>
                 <Th align="right">영업건</Th>
                 <Th align="right">누적 매출</Th>
-                <Th>영업담당</Th>
+                <Th>담당 부서</Th>
+                <Th>사내 담당</Th>
               </tr>
             </thead>
             <tbody>
@@ -189,6 +198,7 @@ export default async function OrganizationsPage({
                   <Td align="right" className="tnum font-semibold">
                     {o.revenue > 0 ? formatKRWShort(o.revenue) : "-"}
                   </Td>
+                  <Td className="text-muted">{o.clientDepartment ?? "-"}</Td>
                   <Td>{o.ownerName ?? "-"}</Td>
                 </tr>
               ))}

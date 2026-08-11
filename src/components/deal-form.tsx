@@ -111,7 +111,7 @@ export function DealForm({
         </Field>
 
         <Field
-          label="사내 영업 담당자"
+          label="사내 컨택 담당자"
           htmlFor="ownerName"
           hint="비워 두면 로그인한 본인 이름이 들어갑니다."
         >

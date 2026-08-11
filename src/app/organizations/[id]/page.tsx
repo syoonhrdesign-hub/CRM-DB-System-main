@@ -117,7 +117,8 @@ export default async function OrganizationDetailPage({
               {[
                 org.industry,
                 org.sizeTier,
-                org.ownerName && `담당 ${org.ownerName}`,
+                org.clientDepartment,
+                org.ownerName && `사내 담당 ${org.ownerName}`,
                 org.acquisitionChannel && `유입 ${org.acquisitionChannel}`,
               ]
                 .filter(Boolean)
@@ -191,6 +192,11 @@ export default async function OrganizationDetailPage({
             <DefList>
               <DefItem label="사업자등록번호">{formatBizRegNo(org.bizRegNo)}</DefItem>
               <DefItem label="최초 접촉">{formatDate(org.firstContactAt)}</DefItem>
+              <DefItem label="사내 컨택 담당자">{org.ownerName ?? "-"}</DefItem>
+              <DefItem label="담당 부서">{org.clientDepartment ?? "-"}</DefItem>
+              <div className="sm:col-span-2">
+                <DefItem label="부서 업무">{org.departmentRole ?? "-"}</DefItem>
+              </div>
               <DefItem label="유입 경로">{org.acquisitionChannel ?? "-"}</DefItem>
               <DefItem label="소개해 준 곳">{org.referredBy ?? "-"}</DefItem>
               <DefItem label="임직원 수">

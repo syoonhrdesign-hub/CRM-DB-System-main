@@ -40,6 +40,8 @@ function organizationData(fd: FormData) {
     website: optStr(fd, "website"),
     address: optStr(fd, "address"),
     ownerName: optStr(fd, "ownerName"),
+    clientDepartment: optStr(fd, "clientDepartment"),
+    departmentRole: optStr(fd, "departmentRole"),
     memo: optStr(fd, "memo"),
 
     acquisitionChannel: optStr(fd, "acquisitionChannel"),

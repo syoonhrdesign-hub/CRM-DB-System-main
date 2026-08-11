@@ -115,11 +115,39 @@ export function OrganizationForm({
           <TextInput name="address" defaultValue={organization?.address} />
         </Field>
 
-        <Field label="사내 영업 담당자" htmlFor="ownerName">
+        <Field
+          label="사내 컨택 담당자"
+          htmlFor="ownerName"
+          hint="우리 회사에서 이 고객사를 맡은 사람"
+        >
           <TextInput
             name="ownerName"
             defaultValue={organization?.ownerName}
-            placeholder="예: 김영업"
+            placeholder="예: 김서윤"
+          />
+        </Field>
+
+        <h3 className="mt-2 border-b border-line pb-1.5 text-sm font-bold sm:col-span-2">
+          고객사 창구 부서
+        </h3>
+
+        <Field
+          label="담당 부서"
+          htmlFor="clientDepartment"
+          hint="담당자는 바뀌어도 부서는 남습니다. 재접촉할 때 실마리가 됩니다."
+        >
+          <TextInput
+            name="clientDepartment"
+            defaultValue={organization?.clientDepartment}
+            placeholder="예: 인재개발원, 인사팀 교육파트"
+          />
+        </Field>
+
+        <Field label="부서 업무" htmlFor="departmentRole">
+          <TextInput
+            name="departmentRole"
+            defaultValue={organization?.departmentRole}
+            placeholder="예: 전사 교육 기획·운영, 승진자 과정 주관"
           />
         </Field>
 

@@ -10,7 +10,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 export const SESSION_COOKIE = "crm_session";
 
-/** 세션 유효기간 — 영업 담당자가 매일 로그인하지 않아도 되게 넉넉히 둔다. */
+/** 세션 유효기간 — 담당자가 매일 로그인하지 않아도 되게 넉넉히 둔다. */
 export const SESSION_DAYS = 14;
 
 export type SessionPayload = {
