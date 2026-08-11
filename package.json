@@ -24,6 +24,7 @@
     "@prisma/client": "^6.16.2",
     "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.10.1",
+    "fflate": "^0.8.3",
     "jose": "^6.2.8",
     "next": "^15.5.4",
     "react": "^19.1.1",

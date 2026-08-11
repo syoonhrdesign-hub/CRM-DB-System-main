@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge, Card, EmptyState, PageHeader, TableWrap, Td, Th } from "@/components/ui";
+import { BulkAutoButton } from "@/components/auto-research-buttons";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { researchGaps } from "@/lib/research";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ResearchListPage() {
   await requireUser();
+
+  const withoutResearch = await db.organization.count({ where: { research: null } });
 
   const list = await db.companyResearch.findMany({
     orderBy: { updatedAt: "desc" },
@@ -34,6 +37,8 @@ export default async function ResearchListPage() {
           </div>
         }
       />
+
+      <BulkAutoButton withoutResearch={withoutResearch} />
 
       <Card padded={false}>
         {list.length === 0 ? (

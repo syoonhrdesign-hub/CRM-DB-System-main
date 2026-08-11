@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { SourceForm } from "@/components/source-form";
+import { AutoFillButton } from "@/components/auto-research-buttons";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { RESEARCH_SECTIONS, parseGaps, researchGaps } from "@/lib/research";
@@ -172,6 +173,13 @@ export default async function ResearchDetailPage({
             <SourceForm researchId={id} />
           </div>
         </Card>
+
+        {/* 공시 자동 채우기 */}
+        {g.missing.length > 0 && (
+          <Card title="공시로 채우기">
+            <AutoFillButton researchId={id} />
+          </Card>
+        )}
 
         {/* 아직 안 채운 것 */}
         {g.missing.length > 0 && (
