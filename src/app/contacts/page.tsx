@@ -41,9 +41,14 @@ export default async function ContactsPage({
         title="담당자"
         description={`총 ${contacts.length}명`}
         action={
-          <Link href="/contacts/new" className="btn btn-primary">
-            + 담당자 등록
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/contacts/import" className="btn btn-secondary">
+              명함 일괄 등록
+            </Link>
+            <Link href="/contacts/new" className="btn btn-primary">
+              + 담당자 등록
+            </Link>
+          </div>
         }
       />
 

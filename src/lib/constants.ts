@@ -38,6 +38,9 @@ export const INDUSTRIES = [
 ] as const;
 
 export const COURSE_CATEGORIES = [
+  // 주력 과정을 앞에 둔다 — 등록할 때 가장 많이 고르는 순서
+  "K-DISC",
+  "신입",
   "리더십",
   "직무",
   "법정의무",

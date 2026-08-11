@@ -44,9 +44,14 @@ export default async function CoursesPage() {
         title="교육 과정"
         description={`총 ${rows.length}개 과정 · 운영 중 ${rows.filter((c) => c.isActive).length}개`}
         action={
-          <Link href="/courses/new" className="btn btn-primary">
-            + 과정 등록
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/courses/import" className="btn btn-secondary">
+              일괄 등록
+            </Link>
+            <Link href="/courses/new" className="btn btn-primary">
+              + 과정 등록
+            </Link>
+          </div>
         }
       />
 
