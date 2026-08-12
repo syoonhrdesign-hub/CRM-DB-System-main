@@ -167,7 +167,7 @@ export async function bulkAutoResearch(
     where: { research: null },
     orderBy: [{ status: "asc" }, { name: "asc" }], // 거래중 먼저
     take: BATCH,
-    select: { id: true, name: true },
+    select: { id: true, name: true, shortName: true },
   });
 
   if (orgs.length === 0) {
@@ -180,22 +180,43 @@ export async function bulkAutoResearch(
 
   for (const org of orgs) {
     try {
-      const research = await db.companyResearch.create({
-        data: {
-          companyName: org.name,
-          organizationId: org.id,
-          researchedBy: `${user.name} (DART 자동)`,
-        },
+      // 회사명이 같은 미연결 리서치(먼저 올린 손조사)가 있으면
+      // 새로 만들지 않고 이 고객사에 이어 붙인다 — 중복 카드를 막는다
+      const names = [org.name, org.shortName].filter((s): s is string => Boolean(s));
+      const orphan = await db.companyResearch.findFirst({
+        where: { companyName: { in: names }, organizationId: null },
+        select: { id: true },
       });
+      const research = orphan
+        ? await db.companyResearch.update({
+            where: { id: orphan.id },
+            data: { organizationId: org.id },
+          })
+        : await db.companyResearch.create({
+            data: {
+              companyName: org.name,
+              organizationId: org.id,
+              researchedBy: `${user.name} (DART 자동)`,
+            },
+          });
       const outcome = await fillOne(research.id);
       if (outcome.status === "filled") filled += 1;
       else {
         noData += 1;
         // 못 찾은 곳도 리서치는 남긴다 — "DART 미등록" 을 기록해 두면
-        // 나중에 국민연금 조회 대상을 바로 골라낼 수 있다
+        // 나중에 국민연금 조회 대상을 바로 골라낼 수 있다.
+        // 손조사에서 적어 둔 gaps 는 지우지 않고 한 줄 덧붙인다.
+        const cur = await db.companyResearch.findUnique({
+          where: { id: research.id },
+          select: { gaps: true },
+        });
+        const lines = new Set(
+          (cur?.gaps ?? "").split("\n").map((s) => s.trim()).filter(Boolean),
+        );
+        lines.add("DART 미등록 — 비상장 소규모 또는 공공기관. 국민연금·수기 조사 필요");
         await db.companyResearch.update({
           where: { id: research.id },
-          data: { gaps: "DART 미등록 — 비상장 소규모 또는 공공기관. 국민연금·수기 조사 필요" },
+          data: { gaps: [...lines].join("\n") },
         });
       }
     } catch (e) {

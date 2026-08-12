@@ -222,16 +222,28 @@ export async function importResearch(
       select: { id: true },
     });
 
-    const existing = await db.companyResearch.findFirst({
-      where: org ? { OR: [{ organizationId: org.id }, { companyName }] } : { companyName },
-      select: { id: true },
-    });
+    // 그 고객사에 이미 붙은 리서치가 있으면 그것이 우선. 없으면 회사명으로 찾는다.
+    const linked = org
+      ? await db.companyResearch.findUnique({
+          where: { organizationId: org.id },
+          select: { id: true, organizationId: true },
+        })
+      : null;
+    const existing =
+      linked ??
+      (await db.companyResearch.findFirst({
+        where: { companyName },
+        select: { id: true, organizationId: true },
+      }));
 
     let target: string;
     if (existing) {
+      // 리서치를 고객사 등록보다 먼저 올려서 연결이 비었으면, 지금이라도 이어 붙인다
+      const relink =
+        org && !existing.organizationId && !linked ? { organizationId: org.id } : {};
       await db.companyResearch.update({
         where: { id: existing.id },
-        data: { ...data, researchedBy: user.name, researchedAt: new Date() },
+        data: { ...data, ...relink, researchedBy: user.name, researchedAt: new Date() },
       });
       target = existing.id;
       updated += 1;
