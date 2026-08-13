@@ -9,6 +9,8 @@ import {
   findCorp,
   hasDartKey,
 } from "./dart";
+import { fetchNpsSummary, hasNpsKey } from "./nps";
+import { NPS_MISS_MARK, NPS_TARGET_WHERE } from "./research";
 
 /**
  * DART 자동 조회.
@@ -233,6 +235,152 @@ export async function bulkAutoResearch(
   if (failures.length) parts.push(`${failures.length}곳 실패`);
   return {
     ok: `${parts.join(" · ")}. 남은 고객사 ${remaining}곳.`,
+    remaining,
+    failures: failures.length ? failures : undefined,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  국민연금 — DART 가 못 채운 회사의 규모(가입자 수 ≒ 상시 직원 수)             */
+/* -------------------------------------------------------------------------- */
+
+const NPS_SOURCE_URL = "https://www.data.go.kr/data/15083277/openapi.do";
+
+const NO_NPS_KEY_ERROR =
+  "국민연금 키가 없습니다. data.go.kr 에서 '국민연금 가입 사업장 내역' 활용신청 후 .env 에 NPS_API_KEY 로 넣고 서버를 다시 시작해 주세요.";
+
+async function appendGapLine(researchId: string, line: string) {
+  const cur = await db.companyResearch.findUnique({
+    where: { id: researchId },
+    select: { gaps: true },
+  });
+  const lines = new Set(
+    (cur?.gaps ?? "").split("\n").map((s) => s.trim()).filter(Boolean),
+  );
+  lines.add(line);
+  await db.companyResearch.update({
+    where: { id: researchId },
+    data: { gaps: [...lines].join("\n") },
+  });
+}
+
+/** 리서치 한 건을 국민연금으로 채운다. 빈칸만 채운다 — 원칙은 DART 와 같다. */
+async function npsFillOne(researchId: string): Promise<"filled" | "notFound"> {
+  const research = await db.companyResearch.findUnique({
+    where: { id: researchId },
+    include: { sources: { select: { publisher: true } } },
+  });
+  if (!research) throw new Error("리서치가 없습니다");
+
+  const summary = await fetchNpsSummary({
+    name: research.companyName,
+    bizRegNo: research.bizRegNo,
+  });
+
+  if (!summary) {
+    await appendGapLine(
+      researchId,
+      `${NPS_MISS_MARK} (상호가 다르거나 검색에 안 잡힘. 정식 상호로 다시 시도)`,
+    );
+    return "notFound";
+  }
+
+  const data: Record<string, unknown> = { researchedAt: new Date() };
+  if (research.pensionSubscribers == null) data.pensionSubscribers = summary.subscribers;
+  if (!research.pensionAsOf && summary.asOf) data.pensionAsOf = summary.asOf;
+  await db.companyResearch.update({ where: { id: researchId }, data });
+
+  const hasNpsSource = research.sources.some((s) => s.publisher === "국민연금공단");
+  if (!hasNpsSource) {
+    await db.researchSource.create({
+      data: {
+        researchId,
+        kind: "공공데이터",
+        title: `국민연금 가입 사업장 내역${summary.asOf ? ` (기준 ${summary.asOf})` : ""}${
+          summary.siteCount > 1 ? ` · 사업장 ${summary.siteCount}곳 합산` : ""
+        }`,
+        publisher: "국민연금공단",
+        url: NPS_SOURCE_URL,
+      },
+    });
+  }
+
+  return "filled";
+}
+
+/** 리서치 상세에서 — 이 회사 하나만 국민연금으로 채우기 */
+export async function npsFillResearch(
+  id: string,
+  _prev: AutoFillResult,
+  _fd: FormData,
+): Promise<AutoFillResult> {
+  await requireUser();
+  if (!hasNpsKey()) return { error: NO_NPS_KEY_ERROR };
+
+  try {
+    const outcome = await npsFillOne(id);
+    revalidatePath(`/research/${id}`);
+    if (outcome === "filled") {
+      return { ok: "국민연금 가입자 수(≒ 상시 직원 수)를 채웠습니다." };
+    }
+    return {
+      error:
+        "국민연금에서 이 회사를 찾지 못했습니다. 정식 상호나 사업자등록번호를 채운 뒤 다시 시도해 보세요.",
+    };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "국민연금 조회에 실패했습니다." };
+  }
+}
+
+/**
+ * 국민연금 일괄 조회 — 직원 규모가 아직 없는 리서치가 대상.
+ * (DART 직원현황도, 국민연금 가입자 수도 없는 곳)
+ */
+const NPS_BATCH = 50;
+
+export async function bulkNpsResearch(
+  _prev: AutoFillResult,
+  _fd: FormData,
+): Promise<AutoFillResult> {
+  await requireUser();
+  if (!hasNpsKey()) return { error: NO_NPS_KEY_ERROR };
+
+  // 이전 배치에서 "미확인" 으로 남긴 곳은 다시 돌지 않는다 — 무한 반복 방지
+  const targets = await db.companyResearch.findMany({
+    where: NPS_TARGET_WHERE,
+    orderBy: { companyName: "asc" },
+    take: NPS_BATCH,
+    select: { id: true, companyName: true },
+  });
+
+  if (targets.length === 0) {
+    return { ok: "직원 규모가 비어 있는 리서치가 없습니다.", remaining: 0 };
+  }
+
+  let filled = 0;
+  let notFound = 0;
+  const failures: string[] = [];
+
+  for (const t of targets) {
+    try {
+      const outcome = await npsFillOne(t.id);
+      if (outcome === "filled") filled += 1;
+      else notFound += 1;
+    } catch (e) {
+      failures.push(`${t.companyName}: ${e instanceof Error ? e.message : "실패"}`);
+      if (failures.length >= 5) break; // 키 한도 초과 등 연쇄 실패면 멈춘다
+    }
+    await wait(150); // 공공데이터포털을 몰아치지 않는다
+  }
+
+  // "미확인" 으로 기록된 곳은 남은 수에서 빠지도록 gaps 로 거른다
+  const remaining = await db.companyResearch.count({ where: NPS_TARGET_WHERE });
+  revalidatePath("/research");
+
+  const parts = [`${filled}곳 가입자 수 채움`, `${notFound}곳 검색 안 됨`];
+  if (failures.length) parts.push(`${failures.length}곳 실패`);
+  return {
+    ok: `${parts.join(" · ")}. 남은 대상 ${remaining}곳.`,
     remaining,
     failures: failures.length ? failures : undefined,
   };

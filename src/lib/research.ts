@@ -135,6 +135,7 @@ export const RESEARCH_FIELD_KEYS = RESEARCH_FIELDS.map((f) => f.key);
 
 export const SOURCE_KINDS = [
   "공시",
+  "공공데이터",
   "뉴스",
   "홈페이지",
   "채용",
@@ -169,6 +170,19 @@ export function researchGaps(
     missing,
   };
 }
+
+/** 국민연금 검색 실패를 gaps 에 남길 때 쓰는 표식 — 재시도 대상에서 거르는 기준 */
+export const NPS_MISS_MARK = "국민연금 사업장 검색 — 미확인";
+
+/**
+ * 국민연금 일괄 조회 대상: 직원 규모가 없고, 이전에 "미확인" 처리도 안 된 곳.
+ * 주의 — gaps 가 null 인 행은 SQL 에서 NOT LIKE 로도 안 잡히므로 OR 로 명시한다.
+ */
+export const NPS_TARGET_WHERE = {
+  pensionSubscribers: null,
+  employeeTotal: null,
+  OR: [{ gaps: null }, { NOT: { gaps: { contains: NPS_MISS_MARK } } }],
+};
 
 /** "찾아봤지만 없더라" 목록 — 줄바꿈으로 여러 개 */
 export function parseGaps(gaps: string | null | undefined): string[] {

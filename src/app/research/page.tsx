@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Badge, Card, EmptyState, PageHeader, TableWrap, Td, Th } from "@/components/ui";
-import { BulkAutoButton } from "@/components/auto-research-buttons";
+import { BulkAutoButton, BulkNpsButton } from "@/components/auto-research-buttons";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { researchGaps } from "@/lib/research";
+import { NPS_TARGET_WHERE, researchGaps } from "@/lib/research";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,9 @@ export default async function ResearchListPage() {
   await requireUser();
 
   const withoutResearch = await db.organization.count({ where: { research: null } });
+
+  // 국민연금 조회 대상: DART 직원현황도 가입자 수도 없고, "미확인" 처리도 안 된 곳
+  const npsTargets = await db.companyResearch.count({ where: NPS_TARGET_WHERE });
 
   const list = await db.companyResearch.findMany({
     orderBy: { updatedAt: "desc" },
@@ -39,6 +42,7 @@ export default async function ResearchListPage() {
       />
 
       <BulkAutoButton withoutResearch={withoutResearch} />
+      <BulkNpsButton targets={npsTargets} />
 
       <Card padded={false}>
         {list.length === 0 ? (

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { SourceForm } from "@/components/source-form";
-import { AutoFillButton } from "@/components/auto-research-buttons";
+import { AutoFillButton, NpsFillButton } from "@/components/auto-research-buttons";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { RESEARCH_SECTIONS, parseGaps, researchGaps } from "@/lib/research";
@@ -174,10 +174,17 @@ export default async function ResearchDetailPage({
           </div>
         </Card>
 
-        {/* 공시 자동 채우기 */}
+        {/* 공시·국민연금 자동 채우기 */}
         {g.missing.length > 0 && (
-          <Card title="공시로 채우기">
-            <AutoFillButton researchId={id} />
+          <Card title="자동으로 채우기">
+            <div className="grid gap-5">
+              <AutoFillButton researchId={id} />
+              {research.pensionSubscribers == null && (
+                <div className="border-t border-line pt-4">
+                  <NpsFillButton researchId={id} />
+                </div>
+              )}
+            </div>
           </Card>
         )}
 
