@@ -13,17 +13,20 @@
 /* ------------------------------------------------------------------------- */
 
 :root {
-  --bg: #f7f8fa;
+  /* 그라파이트+그린 (C안) — 대표 선정 테마.
+     바탕은 색기 없는 중성 회색, 강조는 초록 하나만 쓴다.
+     "깔끔하고, 숫자가 먼저 보이고, 오래 봐도 눈이 안 아픈" 조건. */
+  --bg: #f7f7f8;
   --surface: #ffffff;
-  --surface-2: #f4f6f8;
-  --border: #e6e9ef;
-  --border-strong: #d3d8e0;
+  --surface-2: #f4f4f5;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
 
-  /* 순검정 대신 살짝 푸른 먹색 — 흰 배경에서 더 또렷하게 읽힌다 */
-  --text: #101828;
-  --text-muted: #5d6b82;
+  /* 그라파이트 먹색 — 순검정 대신 아주 짙은 회색 */
+  --text: #111827;
+  --text-muted: #4b5563;
   /* 날짜·건수 같은 보조 정보도 정보다. 흰 배경에서 4.5:1 을 넘긴다 */
-  --text-faint: #64748b;
+  --text-faint: #6b7280;
 
   /* 브랜드 4색 — 로고의 브러시 획. DISC 유형 색이다.
      장식·아이덴티티 전용이고 버튼·링크에는 쓰지 않는다. 흰 글자 대비가
@@ -33,11 +36,11 @@
   --brand-green: #9ec95e;
   --brand-blue: #4ba1da;
 
-  /* UI 동작색 — 브랜드 파랑과 같은 계열을 어둡게 해 대비를 확보했다.
-     흰 글자 대비 5.22:1 로 WCAG AA 를 통과한다. */
-  --accent: #1e71ad;
-  --accent-hover: #17659c;
-  --accent-soft: #e8f3fa;
+  /* UI 동작색 — 초록(에메랄드)을 어둡게 해 대비를 확보했다.
+     흰 글자 대비 4.9:1 로 WCAG AA 를 통과한다. */
+  --accent: #047857;
+  --accent-hover: #065f46;
+  --accent-soft: #e6f4ef;
 
   --danger: #d13438;
   --success: #0f7b52;
@@ -52,21 +55,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b0d12;
-    --surface: #13161d;
-    --surface-2: #191d26;
-    --border: #252a35;
-    --border-strong: #333a48;
+    --bg: #0c0e11;
+    --surface: #14161a;
+    --surface-2: #1a1d22;
+    --border: #262a30;
+    --border-strong: #343a42;
 
-    --text: #e8eaee;
-    --text-muted: #98a1b2;
-    --text-faint: #78829a;
+    --text: #e9eaec;
+    --text-muted: #9aa2ad;
+    --text-faint: #7b8490;
 
-    /* 어두운 배경에서는 브랜드 파랑을 그대로 써도 대비가 넉넉하다(6.4:1).
-       읽기 편하도록 아주 조금만 밝힌다. */
-    --accent: #5fb0e1;
-    --accent-hover: #7cc0e9;
-    --accent-soft: #102431;
+    /* 어두운 배경에서는 초록을 밝혀서 대비를 확보한다(7.9:1). */
+    --accent: #34d399;
+    --accent-hover: #6ee7b7;
+    --accent-soft: #0b2b20;
 
     --danger: #f07a7d;
     --success: #4ec08d;
