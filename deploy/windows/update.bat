@@ -24,8 +24,9 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-call "%SELFCOPY%" __COPY__ "%~dp0"
-exit /b %errorlevel%
+REM 한 줄에 붙여 둔다 — 사본이 끝난 뒤 이 파일을 다시 읽지 않아야 한다.
+REM (pull 로 이 파일이 바뀌어 있으면 이어 읽기가 또 깨진다)
+call "%SELFCOPY%" __COPY__ "%~dp0" & exit /b
 
 
 :RUN
