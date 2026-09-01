@@ -32,12 +32,26 @@ function serviceKeyParam(): string {
   return encodeURIComponent(key);
 }
 
-/** data.go.kr 게이트웨이 공통 오류 코드 → 사람이 읽을 메시지 */
+/**
+ * data.go.kr 게이트웨이 공통 오류 코드 → 사람이 읽을 메시지.
+ *
+ * 주의: 이 오류들은 HTTP 400 과 함께 오는 경우가 많다. 그래서 상태 코드만 보고
+ * 실패 처리하면 "왜 안 되는지"를 통째로 잃는다. 본문을 항상 먼저 읽는다.
+ */
 const GATEWAY_ERRORS: Record<string, string> = {
+  "01": "국민연금 API 제공기관 시스템 오류입니다. 잠시 뒤 다시 시도해 주세요.",
+  "04": "국민연금 API 요청 형식이 맞지 않습니다 (HTTP 오류).",
+  "12": "국민연금 API 주소가 폐기되었거나 존재하지 않습니다. 코드 수정이 필요합니다.",
   "20": "국민연금 API 접근이 거부되었습니다. data.go.kr 에서 활용신청 승인 상태를 확인해 주세요.",
   "22": "국민연금 API 일일 호출 한도를 넘었습니다. 내일 다시 시도해 주세요.",
-  "30": "국민연금 키가 등록되지 않았습니다. .env 의 NPS_API_KEY 를 확인해 주세요.",
+  "30":
+    "이 키로는 국민연금 사업장 API를 쓸 수 없습니다. data.go.kr 에서 " +
+    "'국민연금공단_국민연금 가입 사업장 내역'(데이터 15083277) 활용신청이 " +
+    "승인됐는지 확인해 주세요. 신청 직후에는 1시간쯤 뒤에 열립니다.",
   "31": "국민연금 API 활용 기간이 만료되었습니다. data.go.kr 에서 연장 신청해 주세요.",
+  "32": "등록되지 않은 도메인·IP 에서의 호출입니다. data.go.kr 신청 정보를 확인해 주세요.",
+  "33": "서명하지 않은 호출입니다. data.go.kr 신청 정보를 확인해 주세요.",
+  "99": "국민연금 API 기타 오류입니다. 잠시 뒤 다시 시도해 주세요.",
 };
 
 const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
@@ -52,28 +66,61 @@ async function callNps(
   const url = `${BASE()}/${endpoint}?serviceKey=${serviceKeyParam()}&${qs}`;
 
   const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`국민연금 API 응답 오류 (HTTP ${res.status})`);
 
-  const xml = parser.parse(await res.text()) as Record<string, unknown>;
+  // 상태 코드로 먼저 끊지 않는다 — 공공데이터포털은 키·승인 문제를 HTTP 400 에
+  // 실어 보내면서 진짜 이유는 본문 XML 에 담는다. 본문을 먼저 읽어야 원인이 보인다.
+  const text = await res.text();
 
-  // 게이트웨이 오류 봉투 (키·한도 문제는 이 형태로 온다)
+  let xml: Record<string, unknown>;
+  try {
+    xml = parser.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      `국민연금 API 응답을 읽지 못했습니다 (HTTP ${res.status}). ${snippet(text)}`,
+    );
+  }
+
+  // 게이트웨이 오류 봉투 (키·승인·한도 문제는 이 형태로 온다)
   const gw = xml.OpenAPI_ServiceResponse as Record<string, unknown> | undefined;
   if (gw) {
     const header = gw.cmmMsgHeader as Record<string, unknown> | undefined;
-    const code = String(header?.returnReasonCode ?? "").padStart(2, "0");
-    throw new Error(GATEWAY_ERRORS[code] ?? `국민연금 API 오류 (코드 ${code})`);
+    const raw = String(header?.returnReasonCode ?? "").trim();
+    const code = raw.length === 1 ? `0${raw}` : raw;
+    const authMsg = String(header?.returnAuthMsg ?? header?.errMsg ?? "").trim();
+    throw new Error(
+      GATEWAY_ERRORS[code] ??
+        `국민연금 API 오류 (코드 ${code || "?"}${authMsg ? `, ${authMsg}` : ""})`,
+    );
   }
 
   const response = xml.response as Record<string, unknown> | undefined;
   const header = response?.header as Record<string, unknown> | undefined;
-  const code = String(header?.resultCode ?? "");
+  const code = String(header?.resultCode ?? "").trim();
   if (code && code !== "00") {
     throw new Error(
       GATEWAY_ERRORS[code] ??
         `국민연금 API 오류: ${String(header?.resultMsg ?? "")} (코드 ${code})`,
     );
   }
-  return (response?.body as Record<string, unknown>) ?? {};
+
+  // 여기까지 왔는데 응답 껍데기가 없으면, 그때는 상태 코드가 유일한 단서다
+  if (!response) {
+    if (!res.ok) {
+      throw new Error(
+        `국민연금 API 응답 오류 (HTTP ${res.status}). ${snippet(text)}`,
+      );
+    }
+    return {};
+  }
+
+  return (response.body as Record<string, unknown>) ?? {};
+}
+
+/** 오류 화면에 붙일 응답 조각 — 키가 섞여 나가지 않게 짧게 자른다 */
+function snippet(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (!flat) return "(응답 내용 없음)";
+  return `응답: ${flat.slice(0, 160)}`;
 }
 
 function itemsOf(body: Record<string, unknown>): Record<string, unknown>[] {
@@ -146,7 +193,12 @@ export type NpsDetail = {
 
 /** 사업장 한 곳의 가입자 수 */
 export async function fetchWorkplaceDetail(seq: string): Promise<NpsDetail | null> {
-  const body = await callNps("getDetailInfoSearch", { seq });
+  // pageNo·numOfRows 는 공공데이터포털 공통 필수값이다. 빼면 400 이 날 수 있다.
+  const body = await callNps("getDetailInfoSearch", {
+    seq,
+    pageNo: "1",
+    numOfRows: "10",
+  });
   const item = itemsOf(body)[0];
   if (!item) return null;
   const n = Number.parseInt(String(item.jnngpCnt ?? "").replace(/\D/g, ""), 10);
