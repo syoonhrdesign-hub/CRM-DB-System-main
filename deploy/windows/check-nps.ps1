@@ -53,6 +53,7 @@ $targets = @(
 )
 
 $살아있는주소 = $null
+$살아있는경로 = $null
 
 foreach ($t in $targets) {
   Write-Host $t.이름 -ForegroundColor Yellow
@@ -63,7 +64,7 @@ foreach ($t in $targets) {
     $총건수 = if ($body -match "<totalCount>(\d+)</totalCount>") { $matches[1] } else { "?" }
     $첫사업장 = if ($body -match "<wkplNm>([^<]+)</wkplNm>") { $matches[1] } else { "(목록 없음)" }
     Write-Host "    => 정상. 전체 $총건수 건, 첫 사업장: $첫사업장" -ForegroundColor Green
-    if (-not $살아있는주소) { $살아있는주소 = $t.이름 }
+    if (-not $살아있는주소) { $살아있는주소 = $t.이름; $살아있는경로 = $t.경로 }
   }
   elseif ($body -match "NO_OPENAPI_SERVICE") {
     Write-Host "    => 폐기된 주소" -ForegroundColor DarkGray
@@ -86,8 +87,46 @@ foreach ($t in $targets) {
   Write-Host ""
 }
 
+# ---------------------------------------------------------------------------
+# 실제 검색 테스트 — 주소가 살아 있어도 조건(파라미터) 이름이 바뀌었으면
+# 아무것도 안 나온다. 확실히 존재하는 회사로 물어보고 응답 원문을 본다.
+# ---------------------------------------------------------------------------
+if ($살아있는경로) {
+  Write-Host "-----------------------------------------------" -ForegroundColor Cyan
+  Write-Host " 실제 검색 테스트 (조건 이름이 맞는지)" -ForegroundColor Cyan
+  Write-Host "-----------------------------------------------" -ForegroundColor Cyan
+  Write-Host ""
+
+  $조건들 = @(
+    @{ 설명 = "wkpl_nm=삼성전자";     쿼리 = "wkpl_nm=" + [uri]::EscapeDataString("삼성전자") },
+    @{ 설명 = "wkpl_nm=대한항공";     쿼리 = "wkpl_nm=" + [uri]::EscapeDataString("대한항공") },
+    @{ 설명 = "wkplNm=삼성전자 (V2 표기 추정)"; 쿼리 = "wkplNm=" + [uri]::EscapeDataString("삼성전자") }
+  )
+
+  foreach ($c in $조건들) {
+    $u = "$root/$살아있는경로" + "?serviceKey=$key&pageNo=1&numOfRows=3&" + $c.쿼리
+    $b = Get-Body $u
+    $cnt = if ($b -match "<totalCount>(\d+)</totalCount>") { $matches[1] } else { "?" }
+    $nm  = if ($b -match "<wkplNm>([^<]+)</wkplNm>") { $matches[1] } else { "" }
+    if ($cnt -ne "0" -and $cnt -ne "?") {
+      Write-Host ("  {0,-32} => {1} 건  (예: {2})" -f $c.설명, $cnt, $nm) -ForegroundColor Green
+    } else {
+      Write-Host ("  {0,-32} => 0 건" -f $c.설명) -ForegroundColor DarkGray
+    }
+  }
+
+  Write-Host ""
+  Write-Host " [응답 원문 — 항목 이름을 확인하기 위한 것입니다]" -ForegroundColor Yellow
+  $raw = Get-Body ("$root/$살아있는경로" + "?serviceKey=$key&pageNo=1&numOfRows=2&wkpl_nm=" + [uri]::EscapeDataString("삼성전자"))
+  $raw = ($raw -replace "\s+", " ").Trim()
+  if ($raw.Length -gt 900) { $raw = $raw.Substring(0, 900) + " ..." }
+  Write-Host " $raw"
+  Write-Host ""
+}
+
 Write-Host "===============================================" -ForegroundColor Cyan
 if ($살아있는주소) {
+
   Write-Host " 결론: $살아있는주소 가 살아 있습니다. API 는 정상입니다." -ForegroundColor Green
   Write-Host ""
   Write-Host " 회사를 못 찾는다면 이름 문제입니다 — 국민연금에는"
