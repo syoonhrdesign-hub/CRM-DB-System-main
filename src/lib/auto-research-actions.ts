@@ -38,7 +38,7 @@ type FillOutcome =
 async function fillOne(researchId: string): Promise<FillOutcome> {
   const research = await db.companyResearch.findUnique({
     where: { id: researchId },
-    include: { sources: { select: { publisher: true, kind: true } } },
+    include: { sources: { select: { title: true } } },
   });
   if (!research) return { status: "error", message: "리서치가 없습니다" };
 
@@ -91,18 +91,41 @@ async function fillOne(researchId: string): Promise<FillOutcome> {
 
   await db.companyResearch.update({ where: { id: researchId }, data });
 
-  // 근거 — 이미 DART 근거가 있으면 또 달지 않는다
-  const hasDartSource = research.sources.some((s) => s.publisher === "DART");
-  if (!hasDartSource) {
+  // 근거 — 무엇을 어디서 가져왔는지 따로 남긴다.
+  //
+  // 기업개황과 직원현황은 출처 문서가 다르다(회사 정보 화면 / 사업보고서).
+  // 하나로 묶어 두면 링크를 눌렀을 때 "이 값이 저기 어디에 있다는 거지?"가 된다.
+  //
+  // 기업개황은 고유번호로 바로 연다 — 회사명 검색은 동명 법인으로 샐 수 있다.
+  const titles = new Set(research.sources.map((s) => s.title));
+
+  const overviewTitle = "DART 기업개황";
+  if (!titles.has(overviewTitle)) {
     await db.researchSource.create({
       data: {
         researchId,
         kind: "공시",
-        title: `DART 기업개황${employees ? ` · ${employees.year} 사업보고서 직원현황` : ""}`,
+        title: overviewTitle,
         publisher: "DART",
-        url: `https://dart.fss.or.kr/dsae001/main.do?autoSearch=true&textCrpNm=${encodeURIComponent(corp.name)}`,
+        url: `https://dart.fss.or.kr/dsae001/selectPopup.ax?selectKey=${encodeURIComponent(corp.corpCode)}`,
       },
     });
+  }
+
+  if (employees) {
+    const reportTitle = `DART ${employees.year} 사업보고서 직원현황`;
+    if (!titles.has(reportTitle)) {
+      await db.researchSource.create({
+        data: {
+          researchId,
+          kind: "공시",
+          title: reportTitle,
+          publisher: "DART",
+          // 사업보고서는 공시서류검색에서 회사별로 찾아 연다
+          url: `https://dart.fss.or.kr/dsab007/main.do?autoSearch=true&textCrpNm=${encodeURIComponent(corp.name)}`,
+        },
+      });
+    }
   }
 
   return { status: "filled", employeeData: Boolean(employees) };
