@@ -10,8 +10,29 @@ import { XMLParser } from "fast-xml-parser";
  * 경우가 많아서, 이름이 맞는 "등록" 상태 사업장의 가입자 수를 합산한다.
  */
 
-const BASE = () =>
-  process.env.NPS_API_BASE || "https://apis.data.go.kr/B552015/NpsBplcInfoInqireService";
+const ROOT = () => process.env.NPS_API_BASE || "https://apis.data.go.kr/B552015";
+
+/**
+ * 서비스 주소 후보.
+ *
+ * 공공데이터포털이 이 API 를 V2 로 옮기면서 옛 주소는 "폐기"(코드 12)가 됐다.
+ * 어느 쪽이 살아 있는지는 호출해 봐야 알고, 앞으로 또 바뀔 수도 있다.
+ * 그래서 후보를 순서대로 두고 "서비스 없음"이 오면 다음 것으로 넘어간다.
+ * 한 번 통한 주소는 기억해서 다음 호출부터 바로 그리로 간다 — 수백 곳을
+ * 도는 일괄 조회에서 매번 헛걸음하지 않기 위해서다.
+ */
+type ServiceVariant = { service: string; suffix: string };
+
+const SERVICE_VARIANTS: ServiceVariant[] = [
+  { service: "NpsBplcInfoInqireServiceV2", suffix: "V2" },
+  { service: "NpsBplcInfoInqireServiceV2", suffix: "" },
+  { service: "NpsBplcInfoInqireService", suffix: "" },
+];
+
+let liveVariant: ServiceVariant | null = null;
+
+/** 이 API 주소가 폐기됐다는 응답 — 다른 후보로 넘어가도 되는 유일한 경우 */
+class NoSuchServiceError extends Error {}
 
 export function hasNpsKey(): boolean {
   return Boolean(process.env.NPS_API_KEY);
@@ -41,7 +62,10 @@ function serviceKeyParam(): string {
 const GATEWAY_ERRORS: Record<string, string> = {
   "01": "국민연금 API 제공기관 시스템 오류입니다. 잠시 뒤 다시 시도해 주세요.",
   "04": "국민연금 API 요청 형식이 맞지 않습니다 (HTTP 오류).",
-  "12": "국민연금 API 주소가 폐기되었거나 존재하지 않습니다. 코드 수정이 필요합니다.",
+  "12":
+    "국민연금 API 주소를 찾지 못했습니다 (알고 있는 주소가 모두 폐기됨). " +
+    "data.go.kr 의 '국민연금공단_국민연금 가입 사업장 내역' 문서에서 " +
+    "현재 주소를 확인해 코드를 고쳐야 합니다.",
   "20": "국민연금 API 접근이 거부되었습니다. data.go.kr 에서 활용신청 승인 상태를 확인해 주세요.",
   "22": "국민연금 API 일일 호출 한도를 넘었습니다. 내일 다시 시도해 주세요.",
   "30":
@@ -56,14 +80,50 @@ const GATEWAY_ERRORS: Record<string, string> = {
 
 const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
 
+/**
+ * 후보 주소를 차례로 시도한다. "서비스 없음"이 아닌 오류는 즉시 올린다 —
+ * 키 문제나 한도 초과인데 주소를 바꿔 가며 다시 부르면 시간만 버린다.
+ */
 async function callNps(
-  endpoint: string,
+  operation: string,
+  params: Record<string, string>,
+): Promise<Record<string, unknown>> {
+  const order = liveVariant
+    ? [liveVariant, ...SERVICE_VARIANTS.filter((v) => v !== liveVariant)]
+    : SERVICE_VARIANTS;
+
+  let lastMissing: Error | null = null;
+
+  for (const variant of order) {
+    try {
+      const body = await callVariant(variant, operation, params);
+      liveVariant = variant; // 통한 주소를 기억한다
+      return body;
+    } catch (e) {
+      if (e instanceof NoSuchServiceError) {
+        lastMissing = e;
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  throw (
+    lastMissing ??
+    new Error("국민연금 API 주소를 찾지 못했습니다. data.go.kr 문서 확인이 필요합니다.")
+  );
+}
+
+async function callVariant(
+  variant: ServiceVariant,
+  operation: string,
   params: Record<string, string>,
 ): Promise<Record<string, unknown>> {
   const qs = Object.entries(params)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&");
-  const url = `${BASE()}/${endpoint}?serviceKey=${serviceKeyParam()}&${qs}`;
+  const path = `${variant.service}/${operation}${variant.suffix}`;
+  const url = `${ROOT()}/${path}?serviceKey=${serviceKeyParam()}&${qs}`;
 
   const res = await fetch(url, { cache: "no-store" });
 
@@ -87,10 +147,11 @@ async function callNps(
     const raw = String(header?.returnReasonCode ?? "").trim();
     const code = raw.length === 1 ? `0${raw}` : raw;
     const authMsg = String(header?.returnAuthMsg ?? header?.errMsg ?? "").trim();
-    throw new Error(
+    const message =
       GATEWAY_ERRORS[code] ??
-        `국민연금 API 오류 (코드 ${code || "?"}${authMsg ? `, ${authMsg}` : ""})`,
-    );
+      `국민연금 API 오류 (코드 ${code || "?"}${authMsg ? `, ${authMsg}` : ""})`;
+    // 12 = 서비스 없음/폐기. 이때만 다음 주소 후보로 넘어간다.
+    throw code === "12" ? new NoSuchServiceError(message) : new Error(message);
   }
 
   const response = xml.response as Record<string, unknown> | undefined;
