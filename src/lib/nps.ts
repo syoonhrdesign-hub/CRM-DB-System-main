@@ -31,6 +31,40 @@ const SERVICE_VARIANTS: ServiceVariant[] = [
 
 let liveVariant: ServiceVariant | null = null;
 
+/**
+ * 조회 조건 이름 표기.
+ *
+ * 옛 주소는 wkpl_nm 처럼 밑줄 표기를 썼는데, V2 로 오면서 응답 항목과 같은
+ * wkplNm 표기로 바뀐 것으로 보인다. 주소가 살아 있어도 표기가 다르면 조회는
+ * 성공하고 결과만 늘 비어서, 오류 없이 조용히 아무것도 못 찾는다.
+ * 그래서 두 표기를 다 시도하고, 결과가 나온 쪽을 기억한다.
+ */
+type ParamStyle = "camel" | "snake";
+
+let liveParamStyle: ParamStyle | null = null;
+
+/** wkpl_nm → wkplNm. pageNo·numOfRows·seq 처럼 밑줄이 없는 이름은 그대로다. */
+function styleParams(
+  params: Record<string, string>,
+  style: ParamStyle,
+): Record<string, string> {
+  if (style === "snake") return params;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params)) {
+    out[k.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())] = v;
+  }
+  return out;
+}
+
+/** 응답 항목 이름도 표기가 다를 수 있어 몇 가지를 함께 본다 */
+function pick(item: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = item[k];
+    if (v !== undefined && v !== null && String(v) !== "") return String(v);
+  }
+  return "";
+}
+
 /** 이 API 주소가 폐기됐다는 응답 — 다른 후보로 넘어가도 되는 유일한 경우 */
 class NoSuchServiceError extends Error {}
 
@@ -200,6 +234,31 @@ export function normalizeWorkplaceName(name: string): string {
     .toLowerCase();
 }
 
+/**
+ * 같은 회사의 사업장인지 판단한다.
+ *
+ * 국민연금 사업장 검색은 이름이 스치기만 해도 걸린다. "삼성전자" 로 찾으면
+ * "유일이엔지/상용/평택 삼성전자 P4 Hook up" 같은 공사현장까지 2천 건 넘게
+ * 나온다. 그대로 합산하면 하청업체 인원이 그 회사 직원으로 둔갑한다.
+ *
+ * 그래서 이름이 앞에서부터 맞는 경우만 인정하고, 뒤에 붙은 꼬리가 지점 표기일
+ * 때만 같은 회사로 본다. "삼성전자서비스" 처럼 다른 법인은 걸러진다.
+ */
+const BRANCH_MARK =
+  /(본사|본점|본부|지점|지사|지부|지회|사업소|사업장|영업소|출장소|공장|센터|캠퍼스|연수원)/;
+
+export function isSameWorkplace(workplaceName: string, companyName: string): boolean {
+  const w = normalizeWorkplaceName(workplaceName);
+  const t = normalizeWorkplaceName(companyName);
+  if (!w || !t) return false;
+  if (w === t) return true;
+  if (!w.startsWith(t)) return false;
+
+  // 앞은 같고 뒤에 뭔가 더 붙어 있다 — 지점 표기 정도라면 같은 회사로 본다
+  const rest = w.slice(t.length);
+  return rest.length <= 10 && BRANCH_MARK.test(rest);
+}
+
 export type NpsWorkplace = {
   seq: string;
   name: string;
@@ -228,23 +287,31 @@ export async function searchWorkplaces(opts: {
   if (digits.length >= 6) params.bzowr_rgst_no = digits.slice(0, 6);
   else params.wkpl_nm = opts.name.trim();
 
-  const body = await callNps("getBassInfoSearch", params);
+  // 표기를 아직 모르면 둘 다 시도한다. 한 번이라도 결과가 나오면 그 표기로 굳힌다.
+  const styles: ParamStyle[] = liveParamStyle ? [liveParamStyle] : ["camel", "snake"];
 
-  const norm = normalizeWorkplaceName(opts.name);
-  return itemsOf(body)
+  let items: Record<string, unknown>[] = [];
+  for (const style of styles) {
+    const body = await callNps("getBassInfoSearch", styleParams(params, style));
+    items = itemsOf(body);
+    if (items.length > 0) {
+      liveParamStyle = style; // 통한 표기를 기억한다
+      break;
+    }
+  }
+
+  return items
     .map((it) => ({
-      seq: String(it.seq ?? ""),
-      name: String(it.wkplNm ?? ""),
-      bizRegPrefix: String(it.bzowrRgstNo ?? ""),
-      dataCrtYm: String(it.dataCrtYm ?? ""),
-      address: String(it.wkplRoadNmDtlAddr ?? ""),
+      seq: pick(it, "seq"),
+      name: pick(it, "wkplNm", "wkpl_nm"),
+      bizRegPrefix: pick(it, "bzowrRgstNo", "bzowr_rgst_no"),
+      dataCrtYm: pick(it, "dataCrtYm", "data_crt_ym"),
+      address: pick(it, "wkplRoadNmDtlAddr", "wkpl_road_nm_dtl_addr"),
     }))
     .filter((w) => w.seq && w.name)
-    .filter((w) => {
-      // 번호로 찾았어도 같은 앞 6자리의 남의 회사가 섞일 수 있어 이름을 대조한다
-      const wn = normalizeWorkplaceName(w.name);
-      return wn.includes(norm) || norm.includes(wn);
-    });
+    // 번호로 찾았어도 같은 앞 6자리의 남의 회사가 섞이고, 이름으로 찾으면
+    // 이름이 스친 남의 사업장이 잔뜩 딸려 온다. 둘 다 여기서 걸러낸다.
+    .filter((w) => isSameWorkplace(w.name, opts.name));
 }
 
 export type NpsDetail = {
@@ -255,16 +322,15 @@ export type NpsDetail = {
 /** 사업장 한 곳의 가입자 수 */
 export async function fetchWorkplaceDetail(seq: string): Promise<NpsDetail | null> {
   // pageNo·numOfRows 는 공공데이터포털 공통 필수값이다. 빼면 400 이 날 수 있다.
-  const body = await callNps("getDetailInfoSearch", {
-    seq,
-    pageNo: "1",
-    numOfRows: "10",
-  });
+  const body = await callNps(
+    "getDetailInfoSearch",
+    styleParams({ seq, pageNo: "1", numOfRows: "10" }, liveParamStyle ?? "camel"),
+  );
   const item = itemsOf(body)[0];
   if (!item) return null;
-  const n = Number.parseInt(String(item.jnngpCnt ?? "").replace(/\D/g, ""), 10);
+  const n = Number.parseInt(pick(item, "jnngpCnt", "jnngp_cnt").replace(/\D/g, ""), 10);
   if (!Number.isFinite(n)) return null;
-  return { subscribers: n, dataCrtYm: String(item.dataCrtYm ?? "") };
+  return { subscribers: n, dataCrtYm: pick(item, "dataCrtYm", "data_crt_ym") };
 }
 
 export type NpsSummary = {
