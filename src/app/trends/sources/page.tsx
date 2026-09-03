@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { Badge, Card, PageHeader } from "@/components/ui";
 import { SourceAddForm } from "@/components/trend-source-form";
+import { SourceTestButton } from "@/components/trend-buttons";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { requireUser } from "@/lib/session";
-import { STARTER_SOURCES, categoryTone, hasNaverKeys } from "@/lib/trends";
-import { deleteSource, seedSources, testSource, toggleSource } from "@/lib/trend-actions";
+import { KEYWORD_KINDS, STARTER_SOURCES, categoryTone, hasNaverKeys } from "@/lib/trends";
+import { deleteSource, seedSources, toggleSource } from "@/lib/trend-actions";
 
 export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = {
   rss: "RSS",
+  google: "구글 뉴스",
   naver: "네이버 뉴스",
   manual: "직접 등록",
 };
@@ -42,9 +44,10 @@ export default async function TrendSourcesPage() {
         <div className="mb-6 rounded-card border border-line bg-surface p-4">
           <h2 className="text-sm font-bold">네이버 뉴스 키가 없습니다</h2>
           <p className="mt-1 text-sm text-muted">
-            네이버 뉴스로 찾는 소스는 지금 건너뜁니다. developers.naver.com 에서 애플리케이션을
-            등록하고 <code className="rounded bg-surface-2 px-1">.env</code> 에 아래 두 줄을 넣은
-            뒤 서버를 다시 시작하면 됩니다. 무료이고 하루 25,000회까지 됩니다.
+            네이버 뉴스로 찾는 소스는 당분간 같은 검색어로 <b>구글 뉴스</b>를 대신 봅니다.
+            네이버까지 쓰려면 developers.naver.com 에서 애플리케이션을 등록하고{" "}
+            <code className="rounded bg-surface-2 px-1">.env</code> 에 아래 두 줄을 넣은 뒤
+            서버를 다시 시작하면 됩니다. 무료이고 하루 25,000회까지 됩니다.
           </p>
           <pre className="mt-2 overflow-x-auto rounded-md bg-surface-2 p-3 text-xs">
 {`NAVER_CLIENT_ID="발급받은 값"
@@ -83,10 +86,13 @@ NAVER_CLIENT_SECRET="발급받은 값"`}
                       <span className="text-sm font-semibold">{s.name}</span>
                       <Badge tone="gray">{KIND_LABEL[s.kind] ?? s.kind}</Badge>
                       {!s.isActive && <Badge tone="amber">꺼짐</Badge>}
+                      {s.kind === "naver" && !naverReady && (
+                        <Badge tone="gray">키 없음 → 구글 뉴스로 대신</Badge>
+                      )}
                     </div>
 
                     <p className="mt-1 break-all text-xs text-faint">
-                      {s.kind === "naver" ? `검색어: ${s.keyword}` : s.url}
+                      {KEYWORD_KINDS.includes(s.kind) ? `검색어: ${s.keyword}` : s.url}
                     </p>
 
                     {s.lastError ? (
@@ -102,13 +108,7 @@ NAVER_CLIENT_SECRET="발급받은 값"`}
                     )}
 
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {s.kind !== "manual" && (
-                        <form action={testSource.bind(null, s.id)}>
-                          <button type="submit" className="btn btn-secondary">
-                            연결 확인
-                          </button>
-                        </form>
-                      )}
+                      {s.kind !== "manual" && <SourceTestButton id={s.id} />}
                       <form action={toggleSource.bind(null, s.id)}>
                         <button type="submit" className="btn btn-secondary">
                           {s.isActive ? "끄기" : "켜기"}

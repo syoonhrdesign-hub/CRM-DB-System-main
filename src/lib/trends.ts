@@ -14,9 +14,24 @@ export type TrendCategory = (typeof TREND_CATEGORIES)[number];
 
 export const TREND_KINDS = {
   rss: "RSS 주소에서 읽기",
-  naver: "네이버 뉴스에서 키워드로 찾기",
+  google: "구글 뉴스에서 키워드로 찾기 (키 필요 없음)",
+  naver: "네이버 뉴스에서 키워드로 찾기 (네이버 키 필요)",
   manual: "직접 등록 (자동 수집 안 함)",
 } as const;
+
+/** 검색어 하나로 찾는 방식들 — 주소 대신 keyword 를 쓴다 */
+export const KEYWORD_KINDS: readonly string[] = ["google", "naver"];
+
+/**
+ * 구글 뉴스 RSS 검색 주소.
+ *
+ * 키 없이 되고, 한국어 기사(hl=ko, gl=KR)를 최신순으로 준다.
+ * 네이버 키를 발급받기 전에도 국내 기사가 모이게 하는 기본 통로다.
+ */
+export function googleNewsRssUrl(keyword: string): string {
+  const base = process.env.TREND_GOOGLE_NEWS_BASE || "https://news.google.com/rss/search";
+  return `${base}?q=${encodeURIComponent(keyword)}&hl=ko&gl=KR&ceid=KR:ko`;
+}
 
 export type StarterSource = {
   name: string;
@@ -53,14 +68,14 @@ export const STARTER_SOURCES: StarterSource[] = [
   },
   {
     name: "기업교육·HRD 뉴스",
-    kind: "naver",
+    kind: "google",
     category: "HRD",
     keyword: "기업교육 HRD",
-    why: "매체를 가리지 않고 훑는다. 네이버 뉴스 검색 API 를 쓴다.",
+    why: "매체를 가리지 않고 훑는다. 구글 뉴스 검색을 쓰므로 키가 필요 없다.",
   },
   {
     name: "리더십·조직문화 뉴스",
-    kind: "naver",
+    kind: "google",
     category: "HRD",
     keyword: "조직문화 리더십 교육",
     why: "우리 주력 과정(리더십·조직문화)의 수요 신호.",
@@ -81,7 +96,7 @@ export const STARTER_SOURCES: StarterSource[] = [
   },
   {
     name: "백서현 칼럼·활동",
-    kind: "naver",
+    kind: "google",
     category: "HRD",
     keyword: "백서현 조직문화",
     why: "여러 매체에 흩어져 실리는 칼럼·강연 소식을 한곳에서 받는다.",
@@ -90,14 +105,14 @@ export const STARTER_SOURCES: StarterSource[] = [
   /* --------------------------------- 채용 --------------------------------- */
   {
     name: "신규채용 계획 조사",
-    kind: "naver",
+    kind: "google",
     category: "채용",
     keyword: "신규채용 계획 조사",
     why: "대한상의·경총이 매년 발표한다. 고객사가 언제 뽑는지 예측하는 근거.",
   },
   {
     name: "신입 채용 동향",
-    kind: "naver",
+    kind: "google",
     category: "채용",
     keyword: "신입사원 채용 수시채용",
     why: "신입 과정 제안 타이밍과 직결된다.",
@@ -106,7 +121,7 @@ export const STARTER_SOURCES: StarterSource[] = [
   /* --------------------------------- 경제 --------------------------------- */
   {
     name: "한국은행 · KDI 경제전망",
-    kind: "naver",
+    kind: "google",
     category: "경제",
     keyword: "한국은행 경제전망 KDI 경제동향",
     why: "교육예산은 경기에 후행한다. 내년 예산 분위기를 먼저 읽는다.",
@@ -120,7 +135,7 @@ export const STARTER_SOURCES: StarterSource[] = [
   },
   {
     name: "DBR 관련 기사",
-    kind: "naver",
+    kind: "google",
     category: "경제",
     keyword: "동아비즈니스리뷰 DBR",
     why: "무료로 풀리는 DBR 기사와 인용 보도를 걸러낸다.",
@@ -129,7 +144,7 @@ export const STARTER_SOURCES: StarterSource[] = [
   /* ---------------------------------- AI ---------------------------------- */
   {
     name: "AI 도입·AI 교육",
-    kind: "naver",
+    kind: "google",
     category: "AI",
     keyword: "기업 AI 교육 도입",
     why: "지금 HRD 예산이 가장 많이 움직이는 주제.",

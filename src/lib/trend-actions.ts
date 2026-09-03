@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "./db";
 import { requireUser } from "./session";
-import { collectAll, collectSource } from "./trend-collect";
-import { STARTER_SOURCES } from "./trends";
+import { collectAll, collectSource, type CollectResult } from "./trend-collect";
+import { KEYWORD_KINDS, STARTER_SOURCES } from "./trends";
 
 export type TrendState = { error?: string; ok?: string };
 
@@ -30,7 +30,7 @@ export async function createSource(
   const keyword = optStr(fd, "keyword");
 
   if (kind === "rss" && !url) return { error: "RSS 주소를 입력해 주세요." };
-  if (kind === "naver" && !keyword) return { error: "검색어를 입력해 주세요." };
+  if (KEYWORD_KINDS.includes(kind) && !keyword) return { error: "검색어를 입력해 주세요." };
 
   await db.trendSource.create({
     data: {
@@ -61,22 +61,61 @@ export async function deleteSource(id: string) {
   revalidatePath("/trends/sources");
 }
 
+/** 수집 결과를 한 줄 문장으로 — 버튼 옆에 바로 보여 준다 */
+function describe(results: CollectResult[]): TrendState {
+  const added = results.reduce((n, r) => n + r.added, 0);
+  const failed = results.filter((r) => r.error);
+  const noted = results.filter((r) => r.note);
+
+  const parts = [`${results.length}곳 확인 · 새 글 ${added}건`];
+  if (failed.length > 0) {
+    parts.push(
+      `실패 ${failed.length}곳 (${failed.map((f) => `${f.name}: ${f.error}`).join(" / ")})`,
+    );
+  }
+  if (noted.length > 0) parts.push(`${noted.length}곳은 ${noted[0].note}`);
+
+  const text = parts.join(" · ");
+  // 전부 실패했으면 빨간 글씨로, 하나라도 됐으면 초록으로
+  return failed.length === results.length && results.length > 0
+    ? { error: text }
+    : { ok: text };
+}
+
 /** 이 소스 하나만 지금 가져와 본다 — 주소가 맞는지 확인하는 용도 */
-export async function testSource(id: string) {
+export async function testSource(
+  id: string,
+  _prev: TrendState,
+  _fd: FormData,
+): Promise<TrendState> {
   await requireUser();
   const s = await db.trendSource.findUnique({
     where: { id },
     select: { id: true, name: true, kind: true, url: true, keyword: true, category: true },
   });
-  if (s) await collectSource(s);
+  if (!s) return { error: "소스를 찾을 수 없습니다." };
+  if (s.kind === "manual") return { ok: "직접 등록 소스는 자동 수집하지 않습니다." };
+
+  const r = await collectSource(s);
   revalidatePath("/trends/sources");
+  revalidatePath("/trends");
+  if (r.error) return { error: `실패 — ${r.error}` };
+  return { ok: `연결됨 · 새 글 ${r.added}건${r.note ? ` (${r.note})` : ""}` };
 }
 
-export async function collectNow() {
+export async function collectNow(_prev: TrendState, _fd: FormData): Promise<TrendState> {
   await requireUser();
-  await collectAll();
+  const results = await collectAll();
   revalidatePath("/trends");
   revalidatePath("/trends/sources");
+
+  if (results.length === 0) {
+    return {
+      error:
+        "자동으로 모을 소스가 없습니다. 소스 관리에서 추천 소스를 넣거나 RSS·검색어 소스를 켜 주세요.",
+    };
+  }
+  return describe(results);
 }
 
 /** 주간 브리핑 생성 — Claude API 키가 있어야 한다 */

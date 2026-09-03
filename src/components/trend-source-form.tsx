@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createSource, type TrendState } from "@/lib/trend-actions";
-import { TREND_CATEGORIES, TREND_KINDS } from "@/lib/trends";
+import { KEYWORD_KINDS, TREND_CATEGORIES, TREND_KINDS } from "@/lib/trends";
 
 const EMPTY: TrendState = {};
 
@@ -67,7 +67,7 @@ export function SourceAddForm() {
         </select>
       </div>
 
-      {kind === "naver" ? (
+      {KEYWORD_KINDS.includes(kind) ? (
         <div>
           <label htmlFor="ts-keyword" className="mb-1 block text-sm font-semibold">
             검색어 *
@@ -79,7 +79,9 @@ export function SourceAddForm() {
             placeholder="예: 기업교육 HRD"
           />
           <p className="mt-1 text-xs text-faint">
-            네이버 뉴스에서 이 말로 찾습니다. 매체를 가리지 않습니다.
+            {kind === "google"
+              ? "구글 뉴스에서 이 말로 찾습니다. 키가 필요 없고 매체를 가리지 않습니다."
+              : "네이버 뉴스에서 이 말로 찾습니다. 키가 없으면 구글 뉴스로 대신 찾습니다."}
           </p>
         </div>
       ) : (

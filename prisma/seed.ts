@@ -25,6 +25,21 @@ function month(offset: number, d = 15): Date {
 }
 
 async function main() {
+  /*
+   * 운영 DB 보호 — 이미 데이터가 있으면 멈춘다.
+   * 이 스크립트는 전체를 지우고 가상 데이터를 넣는다. 실수로 실제 고객사
+   * 690곳 위에 돌리면 복구할 길이 백업뿐이다. 정말 지우고 싶을 때만
+   * SEED_FORCE=1 을 붙여 실행한다.
+   */
+  const existing = await db.organization.count();
+  if (existing > 0 && process.env.SEED_FORCE !== "1") {
+    console.error(
+      `중단: 이미 고객사 ${existing}곳이 들어 있습니다. 이 스크립트는 전부 지우고 데모 데이터로 바꿉니다.\n` +
+        "정말 지우려면  set SEED_FORCE=1 && npm run db:seed  로 실행하세요.",
+    );
+    process.exit(1);
+  }
+
   console.log("기존 데이터를 지우는 중…");
   // 외래키 제약을 피하려고 자식부터 지운다.
   await db.activity.deleteMany();

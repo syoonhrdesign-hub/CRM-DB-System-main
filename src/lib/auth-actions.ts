@@ -11,6 +11,13 @@ import {
 } from "./session-token";
 import { db } from "./db";
 import { getCurrentUser, requireAdmin, requireUser } from "./session";
+import {
+  LOCK_MINUTES,
+  MAX_FAILURES,
+  clearFailures,
+  lockedMinutes,
+  recordFailure,
+} from "./login-throttle";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -80,6 +87,13 @@ export async function login(
     return { error: "이메일과 비밀번호를 입력해 주세요." };
   }
 
+  const wait = lockedMinutes(email);
+  if (wait > 0) {
+    return {
+      error: `비밀번호를 ${MAX_FAILURES}회 틀려 잠시 잠겼습니다. ${wait}분 뒤에 다시 시도해 주세요.`,
+    };
+  }
+
   const user = await db.user.findUnique({ where: { email } });
 
   /*
@@ -92,12 +106,18 @@ export async function login(
   const passwordOk = await verifyPassword(password, stored);
 
   if (!user || !passwordOk) {
-    return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
+    const locked = recordFailure(email);
+    return {
+      error: locked
+        ? `비밀번호를 ${MAX_FAILURES}회 틀려 ${LOCK_MINUTES}분간 잠겼습니다.`
+        : "이메일 또는 비밀번호가 올바르지 않습니다.",
+    };
   }
   if (!user.isActive) {
     return { error: "비활성화된 계정입니다. 관리자에게 문의해 주세요." };
   }
 
+  clearFailures(email);
   await setSessionCookie(user);
   await db.user.update({
     where: { id: user.id },

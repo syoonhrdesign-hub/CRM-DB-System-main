@@ -7,7 +7,15 @@ import { EmptyState, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function DealsPage() {
+export default async function DealsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ closed?: string }>;
+}) {
+  const { closed = "" } = await searchParams;
+  // 기본은 진행 중만. 완료·실패는 해가 갈수록 쌓이기만 하므로 원할 때만 펼친다.
+  const showClosed = closed === "1";
+
   const deals = await db.deal.findMany({
     orderBy: [{ expectedCloseDate: "asc" }, { updatedAt: "desc" }],
     include: { organization: { select: { id: true, name: true } } },
@@ -33,6 +41,12 @@ export default async function DealsPage() {
   const won = deals
     .filter((d) => d.stage === "완료")
     .reduce((s, d) => s + d.expectedAmount, 0);
+  const closedCount = deals.length - open.length;
+
+  const columns = [...byStage.entries()].filter(
+    ([stage]) =>
+      showClosed || !CLOSED_STAGES.includes(stage as (typeof CLOSED_STAGES)[number]),
+  );
 
   return (
     <>
@@ -40,9 +54,17 @@ export default async function DealsPage() {
         title="영업 파이프라인"
         description={`진행 중 ${open.length}건 · 예상 ${formatKRWShort(pipelineValue)} · 가중 ${formatKRWShort(Math.round(weighted))} · 수주 ${formatKRWShort(won)}`}
         action={
-          <Link href="/deals/new" className="btn btn-primary">
-            + 영업건 등록
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={showClosed ? "/deals" : "/deals?closed=1"}
+              className="btn btn-secondary"
+            >
+              {showClosed ? "진행 중만 보기" : `완료·실패 ${closedCount}건 펼치기`}
+            </Link>
+            <Link href="/deals/new" className="btn btn-primary">
+              + 영업건 등록
+            </Link>
+          </div>
         }
       />
 
@@ -57,7 +79,7 @@ export default async function DealsPage() {
       ) : (
         <div className="overflow-x-auto pb-2">
           <div className="flex min-w-max gap-3">
-            {[...byStage.entries()].map(([stage, list]) => {
+            {columns.map(([stage, list]) => {
               const sum = list.reduce((s, d) => s + d.expectedAmount, 0);
               return (
                 <div key={stage} className="w-64 shrink-0">

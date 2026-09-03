@@ -1,12 +1,14 @@
 import { XMLParser } from "fast-xml-parser";
 import { db } from "./db";
+import { googleNewsRssUrl, hasNaverKeys } from "./trends";
 
 /**
  * 트렌드 수집.
  *
- * 두 가지 방식만 쓴다.
- *  - rss   : RSS/Atom 주소를 그대로 읽는다
- *  - naver : 네이버 뉴스 검색 API (공식 API, 무료). 키가 없으면 건너뛴다
+ * 세 가지 방식을 쓴다.
+ *  - rss    : RSS/Atom 주소를 그대로 읽는다
+ *  - google : 구글 뉴스 RSS 검색. 키가 필요 없어 기본 통로다
+ *  - naver  : 네이버 뉴스 검색 API (공식 API, 무료). 키가 없으면 구글 뉴스로 대신 찾는다
  *
  * 채용 사이트(잡코리아·사람인)는 이용약관상 긁을 수 없어 넣지 않았다.
  */
@@ -16,6 +18,8 @@ export type CollectResult = {
   name: string;
   added: number;
   error?: string;
+  /** 정상 처리됐지만 알려 둘 것 — 예: 네이버 키가 없어 구글로 대신 찾음 */
+  note?: string;
 };
 
 const parser = new XMLParser({
@@ -120,6 +124,44 @@ async function fetchRss(url: string): Promise<RawItem[]> {
   return parseFeed(await res.text());
 }
 
+/**
+ * 구글 뉴스 RSS 검색.
+ *
+ * 제목이 "기사 제목 - 매체명" 꼴로 오고 매체명은 <source> 태그에 따로 있다.
+ * 요약(description)은 관련 기사 링크 목록이라 읽을 만한 글이 아니어서 버린다.
+ */
+async function fetchGoogleNews(keyword: string): Promise<RawItem[]> {
+  const res = await fetch(googleNewsRssUrl(keyword), {
+    headers: { "User-Agent": "neoize-CRM/1.0 (trend reader)" },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`구글 뉴스 HTTP ${res.status}`);
+
+  const doc = parser.parse(await res.text()) as Record<string, unknown>;
+  const channel = (doc.rss as { channel?: Record<string, unknown> } | undefined)?.channel;
+  if (!channel) throw new Error("구글 뉴스 응답이 RSS 형식이 아닙니다.");
+
+  return asArray(channel.item as Record<string, unknown>[]).flatMap((it) => {
+    const url = clean(it.link);
+    let title = clean(it.title);
+    if (!url || !title) return [];
+
+    const publisher = clean(it.source) || null;
+    if (publisher && title.endsWith(` - ${publisher}`)) {
+      title = title.slice(0, -(publisher.length + 3)).trim();
+    }
+    return [
+      {
+        title,
+        url,
+        publisher,
+        publishedAt: toDate(it.pubDate),
+        summary: null,
+      },
+    ];
+  });
+}
+
 async function fetchNaver(keyword: string): Promise<RawItem[]> {
   const id = process.env.NAVER_CLIENT_ID;
   const secret = process.env.NAVER_CLIENT_SECRET;
@@ -175,7 +217,7 @@ export async function collectSource(source: {
   keyword: string | null;
   category: string;
 }): Promise<CollectResult> {
-  const base = { sourceId: source.id, name: source.name };
+  const base: CollectResult = { sourceId: source.id, name: source.name, added: 0 };
 
   try {
     let items: RawItem[] = [];
@@ -183,12 +225,21 @@ export async function collectSource(source: {
     if (source.kind === "rss") {
       if (!source.url) throw new Error("RSS 주소가 없습니다.");
       items = await fetchRss(source.url);
+    } else if (source.kind === "google") {
+      if (!source.keyword) throw new Error("검색어가 없습니다.");
+      items = await fetchGoogleNews(source.keyword);
     } else if (source.kind === "naver") {
       if (!source.keyword) throw new Error("검색어가 없습니다.");
-      items = await fetchNaver(source.keyword);
+      if (hasNaverKeys()) {
+        items = await fetchNaver(source.keyword);
+      } else {
+        // 키를 아직 못 받았어도 소식은 모여야 한다 — 같은 검색어로 구글 뉴스를 본다
+        items = await fetchGoogleNews(source.keyword);
+        base.note = "네이버 키가 없어 구글 뉴스로 대신 찾았습니다";
+      }
     } else {
       // manual — 자동 수집 대상이 아니다
-      return { ...base, added: 0 };
+      return base;
     }
 
     let added = 0;

@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { TREND_CATEGORIES, categoryTone } from "@/lib/trends";
-import { collectNow, togglePin } from "@/lib/trend-actions";
+import { togglePin } from "@/lib/trend-actions";
+import { CollectNowButton } from "@/components/trend-buttons";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function TrendsPage({
   const activeCategory =
     category && (TREND_CATEGORIES as readonly string[]).includes(category) ? category : null;
 
-  const [items, sourceCount, counts] = await Promise.all([
+  const [items, sourceCount, counts, lastRun] = await Promise.all([
     db.trendItem.findMany({
       where: {
         ...(activeCategory ? { category: activeCategory } : {}),
@@ -32,7 +33,10 @@ export default async function TrendsPage({
     }),
     db.trendSource.count(),
     db.trendItem.groupBy({ by: ["category"], _count: { _all: true } }),
+    // 마지막으로 모은 시각 — "언제 봤는지"를 버튼 옆에 보여 준다
+    db.trendSource.aggregate({ _max: { lastFetchedAt: true } }),
   ]);
+  const lastFetchedAt = lastRun._max.lastFetchedAt;
 
   const countOf = (c: string) =>
     counts.find((x) => x.category === c)?._count._all ?? 0;
@@ -55,14 +59,22 @@ export default async function TrendsPage({
             <Link href="/trends/sources" className="btn btn-secondary">
               소스 관리
             </Link>
-            <form action={collectNow}>
-              <button type="submit" className="btn btn-primary">
-                지금 수집
-              </button>
-            </form>
           </div>
         }
       />
+
+      {/* 수집 — 결과가 버튼 옆에 바로 뜬다 */}
+      <div className="mb-5 rounded-card border border-line bg-surface px-4 py-3">
+        <CollectNowButton
+          hint={
+            sourceCount === 0
+              ? "소스를 먼저 넣어야 모을 수 있습니다."
+              : lastFetchedAt
+                ? `마지막 수집 ${formatDate(lastFetchedAt)} · 소스 ${sourceCount}곳`
+                : "아직 한 번도 모으지 않았습니다."
+          }
+        />
+      </div>
 
       {sourceCount === 0 && (
         <div className="mb-6 rounded-card border border-accent bg-accent-soft p-4">
