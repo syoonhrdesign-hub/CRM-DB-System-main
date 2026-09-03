@@ -45,13 +45,15 @@ export default async function TrendSourcesPage() {
           <h2 className="text-sm font-bold">네이버 뉴스 키가 없습니다</h2>
           <p className="mt-1 text-sm text-muted">
             네이버 뉴스로 찾는 소스는 당분간 같은 검색어로 <b>구글 뉴스</b>를 대신 봅니다.
-            네이버까지 쓰려면 developers.naver.com 에서 애플리케이션을 등록하고{" "}
-            <code className="rounded bg-surface-2 px-1">.env</code> 에 아래 두 줄을 넣은 뒤
-            서버를 다시 시작하면 됩니다. 무료이고 하루 25,000회까지 됩니다.
+            네이버까지 쓰려면 네이버 클라우드 플랫폼(ncloud.com) 콘솔에서{" "}
+            <b>NAVER API HUB → Application 등록</b>(검색 API 선택) 후 &ldquo;인증 정보&rdquo;의
+            Client ID / Client Secret 을{" "}
+            <code className="rounded bg-surface-2 px-1">.env</code> 에 아래처럼 넣고 서버를
+            다시 시작하면 됩니다. 현재 검색 API 는 무료 구간이 넉넉합니다.
           </p>
           <pre className="mt-2 overflow-x-auto rounded-md bg-surface-2 p-3 text-xs">
-{`NAVER_CLIENT_ID="발급받은 값"
-NAVER_CLIENT_SECRET="발급받은 값"`}
+{`NAVER_APIHUB_KEY_ID="Client ID"
+NAVER_APIHUB_KEY="Client Secret"`}
           </pre>
         </div>
       )}

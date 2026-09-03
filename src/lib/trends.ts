@@ -174,11 +174,35 @@ export const STARTER_SOURCES: StarterSource[] = [
   },
 ];
 
+/**
+ * 네이버 뉴스 검색 키.
+ *
+ * 네이버는 2026년 6월 검색 API 를 개발자센터(developers.naver.com)에서
+ * 네이버 클라우드 플랫폼의 NAVER API HUB 로 옮겼다. 새로 받는 키는 전부
+ * API HUB 방식이고, 옛 개발자센터 키는 2027년 6월 30일까지만 동작한다.
+ *
+ *  - hub    : NAVER_APIHUB_KEY_ID / NAVER_APIHUB_KEY  (새 방식, 우선)
+ *  - legacy : NAVER_CLIENT_ID / NAVER_CLIENT_SECRET   (옛 개발자센터 키)
+ */
+export type NaverKeys =
+  | { mode: "hub"; id: string; secret: string }
+  | { mode: "legacy"; id: string; secret: string };
+
+export function naverKeys(): NaverKeys | null {
+  const hubId = process.env.NAVER_APIHUB_KEY_ID;
+  const hubSecret = process.env.NAVER_APIHUB_KEY;
+  if (hubId && hubSecret) return { mode: "hub", id: hubId, secret: hubSecret };
+
+  const id = process.env.NAVER_CLIENT_ID;
+  const secret = process.env.NAVER_CLIENT_SECRET;
+  if (id && secret) return { mode: "legacy", id, secret };
+
+  return null;
+}
+
 /** 네이버 뉴스 검색에 쓸 키가 있는가 */
 export function hasNaverKeys(): boolean {
-  return Boolean(
-    process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET,
-  );
+  return naverKeys() !== null;
 }
 
 const CATEGORY_TONE: Record<string, "blue" | "green" | "amber" | "violet" | "gray"> = {

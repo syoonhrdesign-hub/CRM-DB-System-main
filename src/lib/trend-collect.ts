@@ -1,6 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { db } from "./db";
-import { googleNewsRssUrl, hasNaverKeys } from "./trends";
+import { googleNewsRssUrl, hasNaverKeys, naverKeys } from "./trends";
 
 /**
  * 트렌드 수집.
@@ -162,24 +162,40 @@ async function fetchGoogleNews(keyword: string): Promise<RawItem[]> {
   });
 }
 
+/**
+ * 네이버 뉴스 검색.
+ *
+ * 키 종류에 따라 주소와 헤더가 다르다. 응답 모양(items[].title/originallink/
+ * link/description/pubDate)은 두 방식이 같다.
+ */
 async function fetchNaver(keyword: string): Promise<RawItem[]> {
-  const id = process.env.NAVER_CLIENT_ID;
-  const secret = process.env.NAVER_CLIENT_SECRET;
-  if (!id || !secret) {
+  const keys = naverKeys();
+  if (!keys) {
     throw new Error(
-      "네이버 검색 키가 없습니다. .env 에 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 을 넣어 주세요.",
+      "네이버 검색 키가 없습니다. .env 에 NAVER_APIHUB_KEY_ID / NAVER_APIHUB_KEY 를 넣어 주세요.",
     );
   }
 
-  const url =
-    "https://openapi.naver.com/v1/search/news.json?display=30&sort=date&query=" +
-    encodeURIComponent(keyword);
+  const qs = `display=30&sort=date&query=${encodeURIComponent(keyword)}`;
+  const hub = keys.mode === "hub";
+  const base = hub
+    ? process.env.NAVER_APIHUB_BASE || "https://naverapihub.apigw.ntruss.com"
+    : process.env.NAVER_LEGACY_BASE || "https://openapi.naver.com";
+  const url = hub ? `${base}/search/v1/news?${qs}` : `${base}/v1/search/news.json?${qs}`;
+  const headers: Record<string, string> = hub
+    ? { "X-NCP-APIGW-API-KEY-ID": keys.id, "X-NCP-APIGW-API-KEY": keys.secret }
+    : { "X-Naver-Client-Id": keys.id, "X-Naver-Client-Secret": keys.secret };
 
-  const res = await fetch(url, {
-    headers: { "X-Naver-Client-Id": id, "X-Naver-Client-Secret": secret },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new Error(`네이버 API HTTP ${res.status}`);
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) {
+    const hint =
+      res.status === 401 || res.status === 403
+        ? " — 키가 틀렸거나, Application 에 '검색' API 가 선택돼 있지 않습니다"
+        : res.status === 429
+          ? " — 호출 한도 초과"
+          : "";
+    throw new Error(`네이버 API HTTP ${res.status}${hint}`);
+  }
 
   const json = (await res.json()) as {
     items?: { title?: string; link?: string; originallink?: string; description?: string; pubDate?: string }[];
