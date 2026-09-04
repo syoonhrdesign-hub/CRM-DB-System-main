@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ACTIVITY_TYPES } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { SubmitButton } from "./buttons";
+import { OrgPicker } from "./org-picker";
 import {
   Checkbox,
   Field,
@@ -37,13 +38,7 @@ export function ActivityForm({
     <form action={action}>
       <FormGrid>
         <Field label="고객사 *" htmlFor="organizationId">
-          <Select
-            name="organizationId"
-            required
-            options={organizations.map((o) => ({ value: o.id, label: o.name }))}
-            defaultValue={orgId}
-            placeholder="고객사를 선택하세요"
-          />
+          <OrgPicker organizations={organizations} defaultValue={orgId} required />
         </Field>
 
         <Field label="활동 유형" htmlFor="type">

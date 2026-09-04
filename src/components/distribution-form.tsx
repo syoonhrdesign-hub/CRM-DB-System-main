@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { OrgPicker } from "./org-picker";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
@@ -118,14 +119,7 @@ export function DistributionForm({
           </Field>
 
           <Field label="고객사" htmlFor="organizationId">
-            <select id="organizationId" name="organizationId" className="select">
-              <option value="">선택 안 함</option>
-              {organizations.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+            <OrgPicker organizations={organizations} />
           </Field>
 
           <Field

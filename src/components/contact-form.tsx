@@ -7,6 +7,7 @@ import {
 } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { SubmitButton } from "./buttons";
+import { OrgPicker } from "./org-picker";
 import {
   Checkbox,
   Field,
@@ -45,13 +46,7 @@ export function ContactForm({
     <form action={action}>
       <FormGrid>
         <Field label="고객사 *" htmlFor="organizationId" span={2}>
-          <Select
-            name="organizationId"
-            required
-            options={organizations.map((o) => ({ value: o.id, label: o.name }))}
-            defaultValue={orgId}
-            placeholder="고객사를 선택하세요"
-          />
+          <OrgPicker organizations={organizations} defaultValue={orgId} required />
         </Field>
 
         <Field label="이름 *" htmlFor="name">

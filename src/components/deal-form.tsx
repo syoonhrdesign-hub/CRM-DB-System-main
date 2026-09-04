@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DEAL_STAGES, LOST_REASONS } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { SubmitButton } from "./buttons";
+import { OrgPicker } from "./org-picker";
 import { Field, FormActions, FormGrid, Select, Textarea, TextInput } from "./form";
 
 export function DealForm({
@@ -28,13 +29,7 @@ export function DealForm({
     <form action={action}>
       <FormGrid>
         <Field label="고객사 *" htmlFor="organizationId">
-          <Select
-            name="organizationId"
-            required
-            options={organizations.map((o) => ({ value: o.id, label: o.name }))}
-            defaultValue={orgId}
-            placeholder="고객사를 선택하세요"
-          />
+          <OrgPicker organizations={organizations} defaultValue={orgId} required />
         </Field>
 
         <Field label="담당자" htmlFor="contactId">

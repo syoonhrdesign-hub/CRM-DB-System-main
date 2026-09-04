@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { OrgPicker } from "./org-picker";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { RESEARCH_SECTIONS } from "@/lib/research";
@@ -70,19 +71,11 @@ export function ResearchForm({
             <label htmlFor="organizationId" className="mb-1 block text-sm font-semibold">
               고객사 연결
             </label>
-            <select
-              id="organizationId"
-              name="organizationId"
+            <OrgPicker
+              organizations={organizations}
               defaultValue={val("organizationId")}
-              className="select"
-            >
-              <option value="">연결 안 함</option>
-              {organizations.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+              emptyLabel="연결 안 함"
+            />
           </div>
 
           <div className="sm:col-span-2">
