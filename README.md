@@ -153,29 +153,45 @@ netsh advfirewall firewall add rule name="CRM" dir=in action=allow protocol=TCP 
 
 ## 나중에 외근·재택에서도 쓰려면
 
-지금은 사내 와이파이에서만 접속됩니다. 밖에서도 봐야 할 일이 생기면
-**Cloudflare Tunnel** 을 권합니다. 공유기 설정을 건드리지 않고, 주소에 자물쇠(https)가
-붙으며, 무료입니다.
+지금은 사내 와이파이에서만 접속됩니다. 밖에서도 봐야 하면 두 가지 길이 있습니다.
+**직원끼리만 쓰는 3인 규모라면 1안(Tailscale)이 가장 쉽고 안전합니다.**
+
+### 1안. Tailscale — 사설망을 인터넷 위에 깐다 (추천)
+
+CRM 을 인터넷에 공개하지 않습니다. 서버 PC 와 직원 노트북·휴대폰에 같은 앱을 깔면
+어디서든 사무실 안에 있는 것처럼 접속됩니다. 공유기 설정·도메인·인증서가 전부 필요 없고,
+개인 요금제는 3명까지 무료입니다.
+
+1. https://tailscale.com 에서 가입 (구글 계정으로 가능)
+2. **서버 PC** 에 Tailscale 설치 → 로그인 → 트레이 아이콘에서 이 PC 의 주소 확인
+   (`100.xx.xx.xx` 또는 `crm-pc.xxxx.ts.net` 같은 이름)
+3. **직원 노트북·휴대폰** 에도 설치 → 같은 계정으로 로그인
+   (다른 사람 계정은 관리 화면에서 초대)
+4. 브라우저에서 `http://<서버 주소>:3000` 접속 — 끝
+
+코드·설정은 아무것도 바꾸지 않습니다.
+
+### 2안. Cloudflare Tunnel — 공개 주소(https)를 만든다
+
+`https://crm.회사도메인` 처럼 아무 기기에서나 앱 설치 없이 열리게 합니다.
+대신 인터넷에 공개되므로 비밀번호 관리가 훨씬 중요해집니다. 회사 도메인을
+Cloudflare 에 등록해야 합니다(무료).
 
 1. https://one.dash.cloudflare.com → Zero Trust → Networks → Tunnels → Create a tunnel
-2. Windows 용 커넥터를 설치하면 `https://무엇무엇.trycloudflare.com` 같은 주소를 줍니다
-3. `next.config.ts` 에 그 주소를 등록합니다:
+2. Windows 용 커넥터를 서버 PC 에 설치하고, Public Hostname 에
+   `crm.회사도메인` → `http://localhost:3000` 을 연결
+3. `.env` 에 그 주소를 적습니다:
 
-   ```ts
-   const nextConfig: NextConfig = {
-     typedRoutes: false,
-     experimental: {
-       serverActions: { allowedOrigins: ["무엇무엇.trycloudflare.com"] },
-     },
-   };
+   ```
+   CRM_EXTERNAL_HOSTS="crm.회사도메인"
    ```
 
-4. `npm run build` 후 서버를 다시 켭니다
+4. `update.bat` (또는 `npm run build`) 후 서버를 다시 켭니다
 
 세션 쿠키는 접속이 https 인지 자동으로 판단하므로 **다른 설정은 건드릴 필요가 없습니다.**
 
-> 밖에서 접근할 수 있게 되면 비밀번호 관리가 훨씬 중요해집니다.
-> 짧거나 다른 사이트와 같은 비밀번호는 쓰지 마세요.
+> 어느 쪽이든 밖에서 접근할 수 있게 되면 짧거나 다른 사이트와 같은 비밀번호는 쓰지 마세요.
+> 로그인 5회 실패 시 10분 잠금은 기본으로 켜져 있습니다.
 
 ---
 
