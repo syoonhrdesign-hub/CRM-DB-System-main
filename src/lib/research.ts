@@ -173,6 +173,8 @@ export function researchGaps(
 
 /** 국민연금 검색 실패를 gaps 에 남길 때 쓰는 표식 — 재시도 대상에서 거르는 기준 */
 export const NPS_MISS_MARK = "국민연금 사업장 검색 — 미확인";
+/** 다 세지 못해 저장하지 않은 경우의 표시 — 이것도 다시 돌지 않는다 */
+export const NPS_PARTIAL_MARK = "국민연금 합산 부분값";
 
 /**
  * 국민연금 일괄 조회 대상: 직원 규모가 없고, 이전에 "미확인" 처리도 안 된 곳.
@@ -181,7 +183,15 @@ export const NPS_MISS_MARK = "국민연금 사업장 검색 — 미확인";
 export const NPS_TARGET_WHERE = {
   pensionSubscribers: null,
   employeeTotal: null,
-  OR: [{ gaps: null }, { NOT: { gaps: { contains: NPS_MISS_MARK } } }],
+  OR: [
+    { gaps: null },
+    {
+      AND: [
+        { NOT: { gaps: { contains: NPS_MISS_MARK } } },
+        { NOT: { gaps: { contains: NPS_PARTIAL_MARK } } },
+      ],
+    },
+  ],
 };
 
 /** "찾아봤지만 없더라" 목록 — 줄바꿈으로 여러 개 */

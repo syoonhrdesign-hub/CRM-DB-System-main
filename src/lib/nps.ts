@@ -114,6 +114,9 @@ const GATEWAY_ERRORS: Record<string, string> = {
 
 const parser = new XMLParser({ ignoreAttributes: true, parseTagValue: false });
 
+/** 요청 하나의 제한 시간 */
+const FETCH_TIMEOUT_MS = Number(process.env.NPS_TIMEOUT_MS) || 20_000;
+
 /**
  * 후보 주소를 차례로 시도한다. "서비스 없음"이 아닌 오류는 즉시 올린다 —
  * 키 문제나 한도 초과인데 주소를 바꿔 가며 다시 부르면 시간만 버린다.
@@ -159,7 +162,18 @@ async function callVariant(
   const path = `${variant.service}/${operation}${variant.suffix}`;
   const url = `${ROOT()}/${path}?serviceKey=${serviceKeyParam()}&${qs}`;
 
-  const res = await fetch(url, { cache: "no-store" });
+  let res: Response;
+  try {
+    // 한 곳이 오래 걸리면 순차로 도는 일괄 조회 전체가 멈춘다 — 제한 시간을 둔다
+    res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  } catch (e) {
+    const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    throw new Error(
+      timedOut
+        ? `국민연금 API 가 ${FETCH_TIMEOUT_MS / 1000}초 안에 응답하지 않았습니다. 잠시 뒤 다시 시도해 주세요.`
+        : `국민연금 API 에 연결하지 못했습니다 (${e instanceof Error ? e.message : "네트워크 오류"}).`,
+    );
+  }
 
   // 상태 코드로 먼저 끊지 않는다 — 공공데이터포털은 키·승인 문제를 HTTP 400 에
   // 실어 보내면서 진짜 이유는 본문 XML 에 담는다. 본문을 먼저 읽어야 원인이 보인다.
@@ -198,14 +212,13 @@ async function callVariant(
     );
   }
 
-  // 여기까지 왔는데 응답 껍데기가 없으면, 그때는 상태 코드가 유일한 단서다
+  // 응답 껍데기(<response>)가 없으면 정상 응답이 아니다. HTTP 200 이어도 마찬가지다 —
+  // 점검 안내 HTML 같은 것이 오는데 "검색 결과 0건"으로 넘기면 그 회사는 영영
+  // "미확인"으로 남는다. 반드시 연동 실패로 올린다.
   if (!response) {
-    if (!res.ok) {
-      throw new Error(
-        `국민연금 API 응답 오류 (HTTP ${res.status}). ${snippet(text)}`,
-      );
-    }
-    return {};
+    throw new Error(
+      `국민연금 API 응답 형식이 다릅니다 (HTTP ${res.status}). ${snippet(text)}`,
+    );
   }
 
   return (response.body as Record<string, unknown>) ?? {};
@@ -241,11 +254,18 @@ export function normalizeWorkplaceName(name: string): string {
  * "유일이엔지/상용/평택 삼성전자 P4 Hook up" 같은 공사현장까지 2천 건 넘게
  * 나온다. 그대로 합산하면 하청업체 인원이 그 회사 직원으로 둔갑한다.
  *
- * 그래서 이름이 앞에서부터 맞는 경우만 인정하고, 뒤에 붙은 꼬리가 지점 표기일
- * 때만 같은 회사로 본다. "삼성전자서비스" 처럼 다른 법인은 걸러진다.
+ * 그래서 이름이 앞에서부터 맞는 경우만 인정하고, 뒤에 붙은 꼬리가 "지역명 + 지점
+ * 표기" 정도일 때만 같은 회사로 본다. 꼬리에서 지점 표기를 걷어낸 나머지가
+ * 네 글자(지역명 길이)를 넘으면 다른 법인으로 본다 — "삼성전자서비스 강남센터"는
+ * 걷어내면 "서비스강남"이 남아 제외되고, "한국전력공사 부산울산본부"는 "부산울산"이
+ * 남아 인정된다.
  */
 const BRANCH_MARK =
   /(본사|본점|본부|지점|지사|지부|지회|사업소|사업장|영업소|출장소|공장|센터|캠퍼스|연수원)/;
+/** 꼬리에서 걷어낼 것: 지점 표기, "제2" 같은 차수, 숫자 */
+const BRANCH_STRIP = new RegExp(`${BRANCH_MARK.source}|제\\d+|\\d+`, "g");
+/** 지점 표기를 걷어낸 뒤 남는 지역명 허용 길이 ("부산울산", "서울강남") */
+const REGION_MAX = 4;
 
 export function isSameWorkplace(workplaceName: string, companyName: string): boolean {
   const w = normalizeWorkplaceName(workplaceName);
@@ -254,9 +274,12 @@ export function isSameWorkplace(workplaceName: string, companyName: string): boo
   if (w === t) return true;
   if (!w.startsWith(t)) return false;
 
-  // 앞은 같고 뒤에 뭔가 더 붙어 있다 — 지점 표기 정도라면 같은 회사로 본다
+  // 앞은 같고 뒤에 뭔가 더 붙어 있다
   const rest = w.slice(t.length);
-  return rest.length <= 10 && BRANCH_MARK.test(rest);
+  if (!BRANCH_MARK.test(rest)) return false; // 지점 표기가 없으면 다른 이름이다
+  const region = rest.replace(BRANCH_STRIP, "");
+  // 남은 것이 짧은 한글(지역명)이어야 한다. 영문·기호가 섞이면 다른 법인·현장이다
+  return region.length <= REGION_MAX && /^[가-힣]*$/.test(region);
 }
 
 export type NpsWorkplace = {
@@ -269,6 +292,18 @@ export type NpsWorkplace = {
   address: string;
 };
 
+export type NpsSearch = {
+  places: NpsWorkplace[];
+  /** 검색 결과가 상한을 넘어 다 못 본 경우 */
+  truncated: boolean;
+  /** API 가 알려 준 전체 검색 건수 (이름 대조 전) */
+  totalCount: number;
+};
+
+/** 검색 한 페이지 크기와 최대 페이지 수 — 300건까지 본다 */
+const PAGE_SIZE = 100;
+const MAX_PAGES = 3;
+
 /**
  * 사업장 검색. 사업자등록번호 앞 6자리가 있으면 그걸 우선 쓴다 —
  * 이름 검색보다 오인이 훨씬 적다.
@@ -276,31 +311,47 @@ export type NpsWorkplace = {
 export async function searchWorkplaces(opts: {
   name: string;
   bizRegNo?: string | null;
-}): Promise<NpsWorkplace[]> {
+}): Promise<NpsSearch> {
   const params: Record<string, string> = {
     wkpl_jnng_stcd: "1", // 등록(가입 중)만 — 탈퇴 사업장 제외
-    numOfRows: "100",
+    numOfRows: String(PAGE_SIZE),
     pageNo: "1",
   };
 
   const digits = (opts.bizRegNo ?? "").replace(/\D/g, "");
-  if (digits.length >= 6) params.bzowr_rgst_no = digits.slice(0, 6);
+  const prefix = digits.length >= 6 ? digits.slice(0, 6) : null;
+  if (prefix) params.bzowr_rgst_no = prefix;
   else params.wkpl_nm = opts.name.trim();
 
   // 표기를 아직 모르면 둘 다 시도한다. 한 번이라도 결과가 나오면 그 표기로 굳힌다.
   const styles: ParamStyle[] = liveParamStyle ? [liveParamStyle] : ["camel", "snake"];
 
   let items: Record<string, unknown>[] = [];
-  for (const style of styles) {
-    const body = await callNps("getBassInfoSearch", styleParams(params, style));
+  let totalCount = 0;
+  let style: ParamStyle = styles[0];
+  for (const candidate of styles) {
+    const body = await callNps("getBassInfoSearch", styleParams(params, candidate));
     items = itemsOf(body);
+    totalCount = Number.parseInt(String(body.totalCount ?? ""), 10) || items.length;
     if (items.length > 0) {
-      liveParamStyle = style; // 통한 표기를 기억한다
+      liveParamStyle = candidate; // 통한 표기를 기억한다
+      style = candidate;
       break;
     }
   }
 
-  return items
+  // 첫 페이지에 다 안 들어오면 다음 페이지도 본다 — 상한까지만
+  const pages = Math.min(MAX_PAGES, Math.ceil(totalCount / PAGE_SIZE));
+  for (let page = 2; page <= pages; page += 1) {
+    const body = await callNps(
+      "getBassInfoSearch",
+      styleParams({ ...params, pageNo: String(page) }, style),
+    );
+    items = items.concat(itemsOf(body));
+  }
+  const truncated = totalCount > pages * PAGE_SIZE;
+
+  const places = items
     .map((it) => ({
       seq: pick(it, "seq"),
       name: pick(it, "wkplNm", "wkpl_nm"),
@@ -309,9 +360,13 @@ export async function searchWorkplaces(opts: {
       address: pick(it, "wkplRoadNmDtlAddr", "wkpl_road_nm_dtl_addr"),
     }))
     .filter((w) => w.seq && w.name)
+    // 번호로 찾았으면 응답의 번호도 다시 대조한다 — API 가 조건을 무시해도 새지 않게
+    .filter((w) => !prefix || w.bizRegPrefix.replace(/\D/g, "").startsWith(prefix))
     // 번호로 찾았어도 같은 앞 6자리의 남의 회사가 섞이고, 이름으로 찾으면
     // 이름이 스친 남의 사업장이 잔뜩 딸려 온다. 둘 다 여기서 걸러낸다.
     .filter((w) => isSameWorkplace(w.name, opts.name));
+
+  return { places, truncated, totalCount };
 }
 
 export type NpsDetail = {
@@ -340,24 +395,35 @@ export type NpsSummary = {
   asOf: string | null;
   /** 합산에 들어간 사업장 수 (본사+지점) */
   siteCount: number;
+  /** 이름이 맞는 사업장 전체 수 — siteCount 보다 크면 일부만 합산한 것 */
+  matchedCount: number;
+  /**
+   * 부분값 여부. 검색 상한을 넘었거나, 상세 조회 상한을 넘었거나, 상세값이 없는
+   * 사업장이 있으면 true. 이때 subscribers 는 "최소 이만큼"이지 전체가 아니다.
+   */
+  partial: boolean;
+  /** 왜 부분값인지 — 화면·기록에 그대로 쓴다 */
+  partialReason: string | null;
 };
 
 /** 상세 조회는 사업장마다 한 번씩 — 폭주를 막기 위해 상한을 둔다 */
-const MAX_SITES = 15;
+const MAX_SITES = 40;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * 회사 하나의 국민연금 요약. 못 찾으면 null.
+ * 다 세지 못했으면 partial 을 세운다 — 호출부는 그 값을 확정치로 저장하면 안 된다.
  */
 export async function fetchNpsSummary(opts: {
   name: string;
   bizRegNo?: string | null;
 }): Promise<NpsSummary | null> {
-  const places = await searchWorkplaces(opts);
+  const { places, truncated } = await searchWorkplaces(opts);
   if (places.length === 0) return null;
 
   let subscribers = 0;
   let siteCount = 0;
+  let missingDetail = 0;
   let asOfRaw = "";
 
   for (const place of places.slice(0, MAX_SITES)) {
@@ -366,12 +432,27 @@ export async function fetchNpsSummary(opts: {
       subscribers += detail.subscribers;
       siteCount += 1;
       if (detail.dataCrtYm > asOfRaw) asOfRaw = detail.dataCrtYm;
+    } else {
+      missingDetail += 1;
     }
     await wait(80);
   }
 
   if (siteCount === 0) return null;
+
+  const reasons: string[] = [];
+  if (truncated) reasons.push("검색 결과가 너무 많아 일부만 봄");
+  if (places.length > MAX_SITES) reasons.push(`사업장 ${places.length}곳 중 ${MAX_SITES}곳만 조회`);
+  if (missingDetail > 0) reasons.push(`${missingDetail}곳은 가입자 수 없음`);
+
   const asOf =
     asOfRaw.length === 6 ? `${asOfRaw.slice(0, 4)}-${asOfRaw.slice(4, 6)}` : null;
-  return { subscribers, asOf, siteCount };
+  return {
+    subscribers,
+    asOf,
+    siteCount,
+    matchedCount: places.length,
+    partial: reasons.length > 0,
+    partialReason: reasons.length > 0 ? reasons.join(", ") : null,
+  };
 }

@@ -10,7 +10,7 @@ import {
   hasDartKey,
 } from "./dart";
 import { fetchNpsSummary, hasNpsKey } from "./nps";
-import { NPS_MISS_MARK, NPS_TARGET_WHERE } from "./research";
+import { NPS_MISS_MARK, NPS_PARTIAL_MARK, NPS_TARGET_WHERE } from "./research";
 
 /**
  * DART 자동 조회.
@@ -288,7 +288,9 @@ async function appendGapLine(researchId: string, line: string) {
 }
 
 /** 리서치 한 건을 국민연금으로 채운다. 빈칸만 채운다 — 원칙은 DART 와 같다. */
-async function npsFillOne(researchId: string): Promise<"filled" | "notFound"> {
+async function npsFillOne(
+  researchId: string,
+): Promise<"filled" | "notFound" | "partial"> {
   const research = await db.companyResearch.findUnique({
     where: { id: researchId },
     include: { sources: { select: { publisher: true } } },
@@ -306,6 +308,17 @@ async function npsFillOne(researchId: string): Promise<"filled" | "notFound"> {
       `${NPS_MISS_MARK} (상호가 다르거나 검색에 안 잡힘. 정식 상호로 다시 시도)`,
     );
     return "notFound";
+  }
+
+  // 다 세지 못한 값은 확정치로 저장하지 않는다 — "일부 사업장 인원"이 회사 규모로 둔갑한다.
+  // 대신 얼마나 봤는지를 남겨 사람이 판단하게 한다.
+  if (summary.partial) {
+    await appendGapLine(
+      researchId,
+      `${NPS_PARTIAL_MARK} — ${summary.siteCount}곳 합계 ${summary.subscribers.toLocaleString("ko-KR")}명 이상` +
+        `${summary.asOf ? ` (기준 ${summary.asOf})` : ""}. ${summary.partialReason}. 확정치가 아니라 저장하지 않음`,
+    );
+    return "partial";
   }
 
   const data: Record<string, unknown> = { researchedAt: new Date() };
@@ -346,6 +359,12 @@ export async function npsFillResearch(
     if (outcome === "filled") {
       return { ok: "국민연금 가입자 수(≒ 상시 직원 수)를 채웠습니다." };
     }
+    if (outcome === "partial") {
+      return {
+        error:
+          "사업장이 너무 많아 다 세지 못했습니다. 세어 본 만큼을 '못 찾은 것' 칸에 적어 두었으니 확인 후 직접 입력해 주세요.",
+      };
+    }
     return {
       error:
         "국민연금에서 이 회사를 찾지 못했습니다. 정식 상호나 사업자등록번호를 채운 뒤 다시 시도해 보세요.",
@@ -382,12 +401,14 @@ export async function bulkNpsResearch(
 
   let filled = 0;
   let notFound = 0;
+  let partial = 0;
   const failures: string[] = [];
 
   for (const t of targets) {
     try {
       const outcome = await npsFillOne(t.id);
       if (outcome === "filled") filled += 1;
+      else if (outcome === "partial") partial += 1;
       else notFound += 1;
     } catch (e) {
       failures.push(`${t.companyName}: ${e instanceof Error ? e.message : "실패"}`);
@@ -401,6 +422,7 @@ export async function bulkNpsResearch(
   revalidatePath("/research");
 
   const parts = [`${filled}곳 가입자 수 채움`, `${notFound}곳 검색 안 됨`];
+  if (partial) parts.push(`${partial}곳은 사업장이 많아 부분값만 기록`);
   if (failures.length) parts.push(`${failures.length}곳 실패`);
   return {
     ok: `${parts.join(" · ")}. 남은 대상 ${remaining}곳.`,
